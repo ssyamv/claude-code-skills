@@ -8,6 +8,7 @@ Claude Code 的 skill 合集。每个 skill 是一个自包含的 SKILL.md，Cla
 |-------|------|----------|
 | `/add-feishu` | 添加飞书（Lark）通道，支持私有化部署 | NanoClaw |
 | `/add-openclaw-feishu` | 接入讯飞私有化飞书，含代理层和文档插件 | OpenClaw |
+| `/setup-lark-cli-xfchat` | 配置讯飞私有化飞书官方 CLI（lark-cli）| 通用 |
 
 ## 安装
 
