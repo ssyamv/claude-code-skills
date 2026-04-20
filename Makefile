@@ -1,7 +1,7 @@
 BIN_DIR := dist
 BINARY := $(BIN_DIR)/xfchat-bootstrapper
 
-.PHONY: build test clean
+.PHONY: build test clean release
 
 build:
 	mkdir -p $(BIN_DIR)
@@ -12,3 +12,7 @@ test:
 
 clean:
 	rm -rf $(BIN_DIR)
+
+release:
+	bash ./scripts/build-release.sh
+	bash ./scripts/build-release-test.sh
