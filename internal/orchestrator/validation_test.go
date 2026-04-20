@@ -29,9 +29,9 @@ func TestRunUsesInternalValidationWhenPhaseValidate(t *testing.T) {
 
 	err := orch.Run(context.Background())
 	if err == nil {
-		t.Fatal("expected validate phase to return the internal validation sentinel")
+		t.Fatal("expected validate phase to fail bootstrapper-owned validation")
 	}
-	if !errors.Is(err, runtimeerrors.ErrValidationUnimplemented) {
-		t.Fatalf("expected internal validation sentinel, got %v", err)
+	if !errors.Is(err, runtimeerrors.ErrValidationFailed) {
+		t.Fatalf("expected validation failure, got %v", err)
 	}
 }
