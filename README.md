@@ -47,6 +47,32 @@ Windows 环境下可使用：
 ./scripts/build-release.ps1
 ```
 
+## Xfchat Bootstrapper Install
+
+macOS latest:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ssyamv/claude-code-skills/main/install/install.sh | bash
+```
+
+macOS pinned:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ssyamv/claude-code-skills/main/install/install.sh | bash -s -- --version v0.1.0
+```
+
+Windows latest:
+
+```powershell
+irm https://raw.githubusercontent.com/ssyamv/claude-code-skills/main/install/install.ps1 | iex
+```
+
+Windows pinned:
+
+```powershell
+&([scriptblock]::Create((irm https://raw.githubusercontent.com/ssyamv/claude-code-skills/main/install/install.ps1))) -Version v0.1.0
+```
+
 ## Smoke Test
 
 发布前按照 [`docs/superpowers/specs/xfchat-bootstrapper-smoke-test.md`](docs/superpowers/specs/xfchat-bootstrapper-smoke-test.md) 执行 smoke test。最低限度先确认 `make test` 通过，然后检查打包产物是否生成在 `dist/`。`make build` 和发布脚本都会生成 `dist/` 里的二进制文件；如果想清理这些产物，运行 `make clean`。
