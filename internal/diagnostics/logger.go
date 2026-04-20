@@ -1,10 +1,10 @@
 package diagnostics
 
 import (
-	"io"
 	"log"
+	"os"
 )
 
 func NewLogger() *log.Logger {
-	return log.New(io.Discard, "", log.LstdFlags)
+	return log.New(redactingWriter{out: os.Stderr}, "", log.LstdFlags)
 }
