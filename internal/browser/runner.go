@@ -2,6 +2,7 @@ package browser
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
@@ -29,6 +30,9 @@ func (r Runner) RunState(ctx context.Context, current state.BootstrapState) (sta
 	result, err := r.Run(ctx, current)
 	if err != nil {
 		return state.BootstrapState{}, err
+	}
+	if result.AppID == "" {
+		return state.BootstrapState{}, fmt.Errorf("platform setup metadata missing app id")
 	}
 	next := current
 	next.AppID = result.AppID
