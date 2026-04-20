@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"os/exec"
 
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/browser"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/config"
@@ -27,6 +28,9 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 				CallbackURL:    cfg.CallbackURL,
 				RequiredScopes: cfg.RequiredScopes,
 			}),
+			Automate: browser.NewDefaultAutomate(browser.ProfileResolver{
+				LookPath: exec.LookPath,
+			}, platform),
 		},
 	}
 	return Orchestrator{

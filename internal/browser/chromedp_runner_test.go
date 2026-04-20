@@ -2,6 +2,7 @@ package browser
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -40,5 +41,22 @@ func TestChromedpRunnerCapturesPlatformMetadata(t *testing.T) {
 	}
 	if result.AppURL != "https://open.xfchat.iflytek.com/app/cli_123/baseinfo" {
 		t.Fatalf("expected app url, got %#v", result)
+	}
+}
+
+func TestNewDefaultAutomateReturnsResolverError(t *testing.T) {
+	resolver := ProfileResolver{
+		LookPath: func(string) (string, error) {
+			return "", errNotFound
+		},
+	}
+
+	automate := NewDefaultAutomate(resolver, "darwin")
+	_, err := automate(context.Background(), NewWorkflow(WorkflowConfig{
+		AppEntryURL: "https://open.xfchat.iflytek.com/app",
+		CallbackURL: "http://localhost:8080/callback",
+	}))
+	if !errors.Is(err, errNotFound) {
+		t.Fatalf("expected resolver error, got %v", err)
 	}
 }
