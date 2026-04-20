@@ -18,16 +18,17 @@ func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
 	if start == nil {
 		start = StartCallbackServer
 	}
+	if r.OpenAuthorization == nil {
+		return ErrOAuthUnimplemented
+	}
 
 	waiter, err := start()
 	if err != nil {
 		return err
 	}
 
-	if r.OpenAuthorization != nil {
-		if err := r.OpenAuthorization(ctx, waiter.URL(), current); err != nil {
-			return err
-		}
+	if err := r.OpenAuthorization(ctx, waiter.URL(), current); err != nil {
+		return err
 	}
 
 	result, err := waiter.Wait(ctx)
