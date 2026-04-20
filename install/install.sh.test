@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+
+bin_dir="$tmp_dir/bin"
+mkdir -p "$bin_dir"
+
+fake_curl="$bin_dir/curl"
+cat >"$fake_curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+log_file="${INSTALL_TEST_STATE_DIR:?}/curl.log"
+printf '%s\n' "$*" >>"$log_file"
+
+output_file=""
+url=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o)
+      output_file="$2"
+      shift 2
+      ;;
+    http://*|https://*)
+      url="$1"
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+case "$url" in
+  *"api.github.com/repos/ssyamv/claude-code-skills/releases/latest"*)
+    payload='{"tag_name":"v9.9.9"}'
+    ;;
+  *"releases/download/v1.2.3/xfchat-bootstrapper-darwin-arm64"*)
+    payload='#!/usr/bin/env bash
+set -euo pipefail
+printf '\''%s\n'\'' "$0 $*" >>"${INSTALL_TEST_STATE_DIR:?}/installed.log"'
+    ;;
+  *"releases/download/v9.9.9/xfchat-bootstrapper-darwin-arm64"*)
+    payload='#!/usr/bin/env bash
+set -euo pipefail
+printf '\''%s\n'\'' "$0 $*" >>"${INSTALL_TEST_STATE_DIR:?}/installed.log"'
+    ;;
+  *)
+    echo "unexpected curl invocation: $*" >&2
+    exit 1
+    ;;
+esac
+
+if [[ -n "$output_file" ]]; then
+  printf '%s\n' "$payload" >"$output_file"
+else
+  printf '%s\n' "$payload"
+fi
+EOF
+chmod +x "$fake_curl"
+
+fake_uname="$bin_dir/uname"
+cat >"$fake_uname" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  -s) printf '%s\n' Darwin ;;
+  -m) printf '%s\n' arm64 ;;
+  *) echo "unexpected uname invocation: $*" >&2; exit 1 ;;
+esac
+EOF
+chmod +x "$fake_uname"
+
+export PATH="$bin_dir:$PATH"
+
+run_install_case() {
+  local case_name="$1"
+  local version_arg="$2"
+  local expected_tag="$3"
+  local expect_latest_call="$4"
+  local malformed_rc="$5"
+  local case_dir="$tmp_dir/$case_name"
+  local home_dir="$case_dir/home"
+  local state_dir="$case_dir/state"
+  local zshrc_before=""
+
+  mkdir -p "$home_dir" "$state_dir"
+  export HOME="$home_dir"
+  export INSTALL_TEST_STATE_DIR="$state_dir"
+
+  if [[ "$malformed_rc" == "yes" ]]; then
+    cat >"$home_dir/.zshrc" <<'EOF'
+keep-me
+# xfchat-bootstrapper installer PATH
+export PATH="/tmp/old/bin:$PATH"
+unrelated=1
+EOF
+    cp "$home_dir/.zshrc" "$state_dir/zshrc.before"
+    zshrc_before="$state_dir/zshrc.before"
+  else
+    cat >"$home_dir/.zshrc" <<'EOF'
+# xfchat-bootstrapper installer PATH
+export PATH="/tmp/old/bin:$PATH"
+# xfchat-bootstrapper installer PATH end
+EOF
+  fi
+
+  cat >"$home_dir/.bashrc" <<'EOF'
+# xfchat-bootstrapper installer PATH
+export PATH="/tmp/old/bin:$PATH"
+# xfchat-bootstrapper installer PATH end
+EOF
+
+  if [[ -n "$version_arg" ]]; then
+    bash ./install/install.sh --version "$version_arg"
+  else
+    bash ./install/install.sh
+  fi
+
+  test -f "$home_dir/.local/bin/xfchat-bootstrapper"
+  test -f "$state_dir/installed.log"
+
+  grep -Fq "releases/download/${expected_tag}/xfchat-bootstrapper-darwin-arm64" "$state_dir/curl.log"
+  grep -Fq "$home_dir/.local/bin/xfchat-bootstrapper" "$state_dir/installed.log"
+
+  if [[ "$expect_latest_call" == "yes" ]]; then
+    grep -Fq 'api.github.com/repos/ssyamv/claude-code-skills/releases/latest' "$state_dir/curl.log"
+  else
+    ! grep -Fq 'api.github.com/repos/ssyamv/claude-code-skills/releases/latest' "$state_dir/curl.log"
+  fi
+
+  if [[ "$malformed_rc" == "yes" ]]; then
+    cmp -s "$zshrc_before" "$home_dir/.zshrc"
+    test "$(grep -c '^keep-me$' "$home_dir/.zshrc")" -eq 1
+    test "$(grep -c '^unrelated=1$' "$home_dir/.zshrc")" -eq 1
+    test "$(grep -c '^# xfchat-bootstrapper installer PATH$' "$home_dir/.bashrc")" -eq 1
+    test "$(grep -c '^export PATH="\$HOME/.local/bin:\$PATH"$' "$home_dir/.bashrc")" -eq 1
+  else
+    test "$(grep -c '^# xfchat-bootstrapper installer PATH$' "$home_dir/.zshrc")" -eq 1
+    test "$(grep -c '^# xfchat-bootstrapper installer PATH$' "$home_dir/.bashrc")" -eq 1
+    test "$(grep -c '^export PATH="\$HOME/.local/bin:\$PATH"$' "$home_dir/.zshrc")" -eq 1
+    test "$(grep -c '^export PATH="\$HOME/.local/bin:\$PATH"$' "$home_dir/.bashrc")" -eq 1
+    test "$(grep -c '^export PATH="/tmp/old/bin:\$PATH"$' "$home_dir/.zshrc")" -eq 0
+    test "$(grep -c '^export PATH="/tmp/old/bin:\$PATH"$' "$home_dir/.bashrc")" -eq 0
+  fi
+}
+
+run_install_case pinned v1.2.3 v1.2.3 no no
+run_install_case latest "" v9.9.9 yes no
+run_install_case malformed v1.2.3 v1.2.3 no yes
