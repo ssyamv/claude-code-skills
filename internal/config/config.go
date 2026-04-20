@@ -29,16 +29,16 @@ func defaultInstallRoot() string {
 	switch runtime.GOOS {
 	case "darwin":
 		if home, err := os.UserHomeDir(); err == nil && home != "" {
-			return filepath.Join(home, "Library", "Application Support", "XfchatLarkCli")
+			return filepath.Join(home, "Library", "Application Support")
 		}
 	case "windows":
 		if dir, err := os.UserConfigDir(); err == nil && dir != "" {
-			return filepath.Join(dir, "XfchatLarkCli")
+			return dir
 		}
 	}
 
 	if dir, err := os.UserCacheDir(); err == nil && dir != "" {
-		return filepath.Join(dir, "XfchatLarkCli")
+		return dir
 	}
 	return filepath.Join(os.TempDir(), "XfchatLarkCli")
 }
