@@ -17,7 +17,7 @@ type BrowserProfile struct {
 
 type ProfileResolver struct {
 	LookPath func(string) (string, error)
-	HomeDir   func() (string, error)
+	HomeDir  func() (string, error)
 }
 
 func (r ProfileResolver) Resolve(goos string) (BrowserProfile, error) {
@@ -36,31 +36,54 @@ func (r ProfileResolver) Resolve(goos string) (BrowserProfile, error) {
 		return BrowserProfile{}, fmt.Errorf("unsupported platform: %s", goos)
 	}
 
-	if binary, err := lookPath("google-chrome"); err == nil {
-		home, err := homeDir()
-		if err != nil {
-			return BrowserProfile{}, fmt.Errorf("resolve home dir: %w", err)
-		}
-		return BrowserProfile{
-			BrowserName: "chrome",
-			BinaryPath:  binary,
-			UserDataDir: userDataDir(goos, home, "chrome"),
-		}, nil
+	home, err := homeDir()
+	if err != nil {
+		return BrowserProfile{}, fmt.Errorf("resolve home dir: %w", err)
 	}
 
-	if binary, err := lookPath("msedge"); err == nil {
-		home, err := homeDir()
-		if err != nil {
-			return BrowserProfile{}, fmt.Errorf("resolve home dir: %w", err)
+	for _, candidate := range browserCandidates(goos, home) {
+		if binary, err := lookPath(candidate.binaryPath); err == nil {
+			return BrowserProfile{
+				BrowserName: candidate.browserName,
+				BinaryPath:  binary,
+				UserDataDir: userDataDir(goos, home, candidate.browserName),
+			}, nil
 		}
-		return BrowserProfile{
-			BrowserName: "edge",
-			BinaryPath:  binary,
-			UserDataDir: userDataDir(goos, home, "edge"),
-		}, nil
 	}
 
 	return BrowserProfile{}, errNotFound
+}
+
+type browserCandidate struct {
+	browserName string
+	binaryPath  string
+}
+
+func browserCandidates(goos, home string) []browserCandidate {
+	switch goos {
+	case "darwin":
+		return []browserCandidate{
+			{browserName: "chrome", binaryPath: "google-chrome"},
+			{browserName: "chrome", binaryPath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"},
+			{browserName: "edge", binaryPath: "msedge"},
+			{browserName: "edge", binaryPath: "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"},
+		}
+	case "windows":
+		return []browserCandidate{
+			{browserName: "chrome", binaryPath: "google-chrome"},
+			{browserName: "chrome", binaryPath: "chrome.exe"},
+			{browserName: "chrome", binaryPath: filepath.Join(home, "AppData", "Local", "Google", "Chrome", "Application", "chrome.exe")},
+			{browserName: "chrome", binaryPath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"},
+			{browserName: "chrome", binaryPath: "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"},
+			{browserName: "edge", binaryPath: "msedge"},
+			{browserName: "edge", binaryPath: "msedge.exe"},
+			{browserName: "edge", binaryPath: filepath.Join(home, "AppData", "Local", "Microsoft", "Edge", "Application", "msedge.exe")},
+			{browserName: "edge", binaryPath: "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"},
+			{browserName: "edge", binaryPath: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"},
+		}
+	default:
+		return nil
+	}
 }
 
 func supportedGOOS(goos string) bool {
