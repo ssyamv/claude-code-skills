@@ -32,3 +32,21 @@ git merge skills/main --allow-unrelated-histories
 ## 使用
 
 安装后在 Claude Code 中直接输入对应的 slash 命令（如 `/add-feishu`），Claude 会自动按照 skill 引导完成安装和配置。
+
+## 构建与发布
+
+```bash
+make build
+make test
+./scripts/build-release.sh
+```
+
+Windows 环境下可使用：
+
+```powershell
+./scripts/build-release.ps1
+```
+
+## Smoke Test
+
+发布前按照 [`docs/superpowers/specs/xfchat-bootstrapper-smoke-test.md`](docs/superpowers/specs/xfchat-bootstrapper-smoke-test.md) 执行 smoke test。最低限度先确认 `make test` 通过，然后检查打包产物是否生成在 `dist/`。`make build` 和发布脚本都会生成 `dist/` 里的二进制文件；如果想清理这些产物，运行 `make clean`。
