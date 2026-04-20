@@ -42,6 +42,59 @@ func TestRunResumesAtValidatePhase(t *testing.T) {
 	}
 }
 
+func TestRunAdvancesStateAfterPlatformSetupAndOAuth(t *testing.T) {
+	root := t.TempDir()
+	store := state.NewStore(root)
+	if err := store.Save(state.BootstrapState{
+		Phase: state.PhasePlatformSetup,
+	}); err != nil {
+		t.Fatalf("seed state failed: %v", err)
+	}
+
+	orch := New(config.Config{}, store, "windows")
+	orch.LoadState = func() (state.BootstrapState, error) {
+		return store.Load()
+	}
+	orch.PlatformSetupRunner = stateAdvanceRunnerFunc(func(context.Context, state.BootstrapState) (state.BootstrapState, error) {
+		return state.BootstrapState{
+			AppID:  "cli_123",
+			AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+		}, nil
+	})
+	orch.OAuthRunner = runnerFunc(func(context.Context, state.BootstrapState) error {
+		return nil
+	})
+	orch.Validate = func(context.Context) error { return nil }
+
+	if err := orch.Run(context.Background()); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+
+	got, err := store.Load()
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+	if got.Phase != state.PhaseValidate {
+		t.Fatalf("expected final phase validate, got %#v", got)
+	}
+	if !got.AuthSuccess {
+		t.Fatalf("expected oauth success to be persisted, got %#v", got)
+	}
+	if got.AppID != "cli_123" || got.AppURL == "" {
+		t.Fatalf("expected app metadata to persist, got %#v", got)
+	}
+}
+
+type stateAdvanceRunnerFunc func(context.Context, state.BootstrapState) (state.BootstrapState, error)
+
+func (f stateAdvanceRunnerFunc) RunState(ctx context.Context, current state.BootstrapState) (state.BootstrapState, error) {
+	return f(ctx, current)
+}
+
+func (f stateAdvanceRunnerFunc) Run(context.Context, state.BootstrapState) error {
+	return nil
+}
+
 func TestNewWiresInternalValidationDefaultForValidatePhase(t *testing.T) {
 	root := t.TempDir()
 
@@ -82,6 +135,7 @@ func TestNewAllowsRuntimeFallbackForLoadedPlatformPhase(t *testing.T) {
 			AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
 		}, nil
 	}
+	orch.PlatformSetupRunner = nil
 	orch.Execute = func(_ context.Context, current state.BootstrapState) error {
 		calls = append(calls, "execute")
 		executedState = current
@@ -121,6 +175,7 @@ func TestNewAllowsRuntimeFallbackForLoadedOAuthPhase(t *testing.T) {
 			AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
 		}, nil
 	}
+	orch.OAuthRunner = nil
 	orch.Execute = func(_ context.Context, current state.BootstrapState) error {
 		calls = append(calls, "execute")
 		executedState = current

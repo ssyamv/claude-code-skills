@@ -54,8 +54,9 @@ func (r *RecoveryError) ToRuntimeError() (*runtimeerrors.BootstrapError, error) 
 
 // BootstrapState persists the resumable bootstrap progress.
 type BootstrapState struct {
-	Phase     Phase          `json:"phase"`
-	AppID     string         `json:"app_id"`
-	AppURL    string         `json:"app_url"`
-	LastError *RecoveryError `json:"last_error,omitempty"`
+	Phase       Phase          `json:"phase"`
+	AppID       string         `json:"app_id"`
+	AppURL      string         `json:"app_url"`
+	AuthSuccess bool           `json:"auth_success"`
+	LastError   *RecoveryError `json:"last_error,omitempty"`
 }

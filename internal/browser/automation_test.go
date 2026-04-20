@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/orchestrator"
+	runtimeerrors "github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/errors"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
@@ -16,7 +16,7 @@ func TestRunnerReturnsSharedUnimplementedErrorWhenAutomateIsNil(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected unimplemented error")
 	}
-	if !errors.Is(err, orchestrator.ErrPlatformSetupUnimplemented) {
+	if !errors.Is(err, runtimeerrors.ErrPlatformSetupUnimplemented) {
 		t.Fatalf("expected shared unimplemented error, got %v", err)
 	}
 	if result != (PlatformSetupResult{}) {

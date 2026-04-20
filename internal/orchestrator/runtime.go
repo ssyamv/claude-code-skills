@@ -2,18 +2,21 @@ package orchestrator
 
 import (
 	"context"
-	"errors"
 
+	runtimeerrors "github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/errors"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
-var ErrPlatformSetupUnimplemented = errors.New("platform setup runner not implemented")
-
-var ErrOAuthUnimplemented = errors.New("oauth runner not implemented")
+var ErrPlatformSetupUnimplemented = runtimeerrors.ErrPlatformSetupUnimplemented
+var ErrOAuthUnimplemented = runtimeerrors.ErrOAuthUnimplemented
 
 // PlatformSetupRunner runs the internal platform setup phase.
 type PlatformSetupRunner interface {
 	Run(context.Context, state.BootstrapState) error
+}
+
+type platformSetupStateRunner interface {
+	RunState(context.Context, state.BootstrapState) (state.BootstrapState, error)
 }
 
 // OAuthRunner runs the internal OAuth phase.

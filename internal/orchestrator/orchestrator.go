@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/browser"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/config"
 	runtimeerrors "github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/errors"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
@@ -11,6 +12,7 @@ import (
 
 type Orchestrator struct {
 	LoadState           func() (state.BootstrapState, error)
+	SaveState           func(state.BootstrapState) error
 	PlatformSetupRunner PlatformSetupRunner
 	OAuthRunner         OAuthRunner
 	Validate            func(context.Context) error
@@ -18,11 +20,22 @@ type Orchestrator struct {
 }
 
 func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
-	_ = cfg
 	_ = platform
+	platformRunner := browserPlatformSetupRunner{
+		Runner: browser.Runner{
+			Workflow: browser.NewWorkflow(browser.WorkflowConfig{
+				AppEntryURL:    "https://open.xfchat.iflytek.com/app",
+				CallbackURL:    cfg.CallbackURL,
+				RequiredScopes: cfg.RequiredScopes,
+			}),
+		},
+	}
 	return Orchestrator{
-		LoadState: store.Load,
-		Validate:  func(context.Context) error { return runtimeerrors.ErrValidationUnimplemented },
+		LoadState:           store.Load,
+		SaveState:           store.Save,
+		PlatformSetupRunner: platformRunner,
+		OAuthRunner:         Runner{},
+		Validate:            func(context.Context) error { return runtimeerrors.ErrValidationUnimplemented },
 	}
 }
 
@@ -43,11 +56,34 @@ func (o Orchestrator) Run(ctx context.Context) error {
 		if err := o.runOAuth(ctx, current); err != nil {
 			return err
 		}
+		current.AuthSuccess = true
+		current.Phase = state.PhaseValidate
+		if err := o.saveState(current); err != nil {
+			return err
+		}
 		return o.runValidate(ctx)
 	}
 
-	if err := o.runPlatformSetup(ctx, current); err != nil {
+	next, advanced, err := o.runPlatformSetup(ctx, current)
+	if err != nil {
 		return err
+	}
+
+	if advanced {
+		next.Phase = state.PhaseOAuth
+		if err := o.saveState(next); err != nil {
+			return err
+		}
+
+		if err := o.runOAuth(ctx, next); err != nil {
+			return err
+		}
+
+		next.AuthSuccess = true
+		next.Phase = state.PhaseValidate
+		if err := o.saveState(next); err != nil {
+			return err
+		}
 	}
 
 	return o.runValidate(ctx)
@@ -75,14 +111,18 @@ func (o Orchestrator) runValidate(ctx context.Context) error {
 	return o.Validate(ctx)
 }
 
-func (o Orchestrator) runPlatformSetup(ctx context.Context, current state.BootstrapState) error {
+func (o Orchestrator) runPlatformSetup(ctx context.Context, current state.BootstrapState) (state.BootstrapState, bool, error) {
+	if runner, ok := o.PlatformSetupRunner.(platformSetupStateRunner); ok {
+		next, err := runner.RunState(ctx, current)
+		return next, true, err
+	}
 	if o.PlatformSetupRunner != nil {
-		return o.PlatformSetupRunner.Run(ctx, current)
+		return current, false, o.PlatformSetupRunner.Run(ctx, current)
 	}
 	if o.Execute != nil {
-		return o.Execute(ctx, current)
+		return current, false, o.Execute(ctx, current)
 	}
-	return nil
+	return current, false, nil
 }
 
 func (o Orchestrator) runOAuth(ctx context.Context, current state.BootstrapState) error {
@@ -93,4 +133,24 @@ func (o Orchestrator) runOAuth(ctx context.Context, current state.BootstrapState
 		return o.Execute(ctx, current)
 	}
 	return ErrOAuthUnimplemented
+}
+
+func (o Orchestrator) saveState(current state.BootstrapState) error {
+	if o.SaveState == nil {
+		return nil
+	}
+	return o.SaveState(current)
+}
+
+type browserPlatformSetupRunner struct {
+	Runner browser.Runner
+}
+
+func (r browserPlatformSetupRunner) Run(ctx context.Context, current state.BootstrapState) error {
+	_, err := r.Runner.Run(ctx, current)
+	return err
+}
+
+func (r browserPlatformSetupRunner) RunState(ctx context.Context, current state.BootstrapState) (state.BootstrapState, error) {
+	return r.Runner.RunState(ctx, current)
 }

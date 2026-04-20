@@ -12,6 +12,8 @@ const (
 )
 
 var ErrValidationUnimplemented = errors.New("internal validation not implemented")
+var ErrPlatformSetupUnimplemented = errors.New("platform setup runner not implemented")
+var ErrOAuthUnimplemented = errors.New("oauth runner not implemented")
 
 // BootstrapError captures the failure kind and user-facing message.
 type BootstrapError struct {

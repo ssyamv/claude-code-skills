@@ -3,10 +3,10 @@ package browser
 import (
 	"context"
 
-	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/orchestrator"
+	runtimeerrors "github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/errors"
 )
 
-var errRunnerUnimplemented = orchestrator.ErrPlatformSetupUnimplemented
+var errRunnerUnimplemented = runtimeerrors.ErrPlatformSetupUnimplemented
 
 type PlatformSetupResult struct {
 	AppID  string
