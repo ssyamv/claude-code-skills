@@ -28,3 +28,11 @@ func (w Workflow) StepNames() []string {
 		"publish-app-version",
 	}
 }
+
+func (w Workflow) AppEntryURL() string {
+	return w.cfg.AppEntryURL
+}
+
+func (w Workflow) RequiredScopes() []string {
+	return append([]string(nil), w.cfg.RequiredScopes...)
+}

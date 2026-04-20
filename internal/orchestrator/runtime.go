@@ -11,8 +11,6 @@ var ErrPlatformSetupUnimplemented = errors.New("platform setup runner not implem
 
 var ErrOAuthUnimplemented = errors.New("oauth runner not implemented")
 
-var ErrValidationUnimplemented = errors.New("validation runner not implemented")
-
 // PlatformSetupRunner runs the internal platform setup phase.
 type PlatformSetupRunner interface {
 	Run(context.Context, state.BootstrapState) error
