@@ -92,5 +92,5 @@ func (o Orchestrator) runOAuth(ctx context.Context, current state.BootstrapState
 	if o.Execute != nil {
 		return o.Execute(ctx, current)
 	}
-	return nil
+	return ErrOAuthUnimplemented
 }
