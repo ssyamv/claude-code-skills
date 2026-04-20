@@ -6,7 +6,6 @@ import (
 
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/browser"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/config"
-	runtimeerrors "github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/errors"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
@@ -35,7 +34,6 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 		SaveState:           store.Save,
 		PlatformSetupRunner: platformRunner,
 		OAuthRunner:         Runner{},
-		Validate:            func(context.Context) error { return runtimeerrors.ErrValidationUnimplemented },
 	}
 }
 
@@ -49,7 +47,7 @@ func (o Orchestrator) Run(ctx context.Context) error {
 	}
 
 	if current.Phase == state.PhaseValidate {
-		return o.runValidate(ctx)
+		return o.runValidate(ctx, current)
 	}
 
 	if current.Phase == state.PhaseOAuth {
@@ -61,7 +59,7 @@ func (o Orchestrator) Run(ctx context.Context) error {
 		if err := o.saveState(current); err != nil {
 			return err
 		}
-		return o.runValidate(ctx)
+		return o.runValidate(ctx, current)
 	}
 
 	next, advanced, err := o.runPlatformSetup(ctx, current)
@@ -84,9 +82,11 @@ func (o Orchestrator) Run(ctx context.Context) error {
 		if err := o.saveState(next); err != nil {
 			return err
 		}
+
+		return o.runValidate(ctx, next)
 	}
 
-	return o.runValidate(ctx)
+	return o.runValidate(ctx, current)
 }
 
 func (o Orchestrator) loadState() (state.BootstrapState, bool, error) {
@@ -104,7 +104,10 @@ func (o Orchestrator) loadState() (state.BootstrapState, bool, error) {
 	return current, true, nil
 }
 
-func (o Orchestrator) runValidate(ctx context.Context) error {
+func (o Orchestrator) runValidate(ctx context.Context, current state.BootstrapState) error {
+	if err := (Validator{}).Run(ctx, current); err != nil {
+		return err
+	}
 	if o.Validate == nil {
 		return nil
 	}

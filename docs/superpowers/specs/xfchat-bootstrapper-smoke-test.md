@@ -45,3 +45,7 @@ make build
 ## Standalone Runtime Regression Note
 
 Before release, also verify the standalone runtime does not fail because an external `lark-cli` binary is missing (`lark-cli.exe` on Windows, `lark-cli` on macOS and Linux). Use [`docs/superpowers/specs/standalone-runtime-regression-checklist.md`](docs/superpowers/specs/standalone-runtime-regression-checklist.md) as the release regression checklist for that scenario.
+
+## Real Browser Validation
+
+Before release, also verify browser automation against the real open platform and a successful localhost callback flow.

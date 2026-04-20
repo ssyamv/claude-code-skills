@@ -17,8 +17,9 @@ func TestRunResumesAtValidatePhase(t *testing.T) {
 	orch := Orchestrator{
 		LoadState: func() (state.BootstrapState, error) {
 			return state.BootstrapState{
-				Phase: state.PhaseValidate,
-				AppID: "cli_123",
+				Phase:       state.PhaseValidate,
+				AppID:       "cli_123",
+				AuthSuccess: true,
 			}, nil
 		},
 		Validate: func(context.Context) error {
@@ -112,15 +113,16 @@ func TestNewWiresInternalValidationDefaultForValidatePhase(t *testing.T) {
 
 	err := orch.Run(context.Background())
 	if err == nil {
-		t.Fatal("expected internal validation error")
+		t.Fatal("expected validation failure")
 	}
-	if !errors.Is(err, runtimeerrors.ErrValidationUnimplemented) {
-		t.Fatalf("expected internal validation sentinel, got %v", err)
+	if !errors.Is(err, runtimeerrors.ErrValidationFailed) {
+		t.Fatalf("expected validation failure, got %v", err)
 	}
 }
 
 func TestNewAllowsRuntimeFallbackForLoadedPlatformPhase(t *testing.T) {
-	var calls []string
+	var executeCalled bool
+	var validateCalled bool
 	var executedState state.BootstrapState
 	root := t.TempDir()
 
@@ -137,22 +139,25 @@ func TestNewAllowsRuntimeFallbackForLoadedPlatformPhase(t *testing.T) {
 	}
 	orch.PlatformSetupRunner = nil
 	orch.Execute = func(_ context.Context, current state.BootstrapState) error {
-		calls = append(calls, "execute")
+		executeCalled = true
 		executedState = current
 		return nil
 	}
 	orch.Validate = func(context.Context) error {
-		calls = append(calls, "validate")
-		return runtimeerrors.ErrValidationUnimplemented
+		validateCalled = true
+		return nil
 	}
 
 	if err := orch.Run(context.Background()); err != nil {
-		if !errors.Is(err, runtimeerrors.ErrValidationUnimplemented) {
+		if !errors.Is(err, runtimeerrors.ErrValidationFailed) {
 			t.Fatalf("run failed: %v", err)
 		}
 	}
-	if len(calls) != 2 || calls[0] != "execute" || calls[1] != "validate" {
-		t.Fatalf("expected execute -> validate ordering, got %v", calls)
+	if !executeCalled {
+		t.Fatal("expected execute to be called")
+	}
+	if validateCalled {
+		t.Fatal("expected custom validate callback not to run when bootstrapper validation fails first")
 	}
 	if executedState.Phase != state.PhasePlatformSetup || executedState.AppID != "cli_123" || executedState.AppURL == "" {
 		t.Fatalf("expected loaded state to be threaded into execute, got %#v", executedState)
@@ -183,13 +188,11 @@ func TestNewAllowsRuntimeFallbackForLoadedOAuthPhase(t *testing.T) {
 	}
 	orch.Validate = func(context.Context) error {
 		calls = append(calls, "validate")
-		return runtimeerrors.ErrValidationUnimplemented
+		return nil
 	}
 
 	if err := orch.Run(context.Background()); err != nil {
-		if !errors.Is(err, runtimeerrors.ErrValidationUnimplemented) {
-			t.Fatalf("run failed: %v", err)
-		}
+		t.Fatalf("run failed: %v", err)
 	}
 	if len(calls) != 2 || calls[0] != "execute" || calls[1] != "validate" {
 		t.Fatalf("expected execute -> validate ordering, got %v", calls)

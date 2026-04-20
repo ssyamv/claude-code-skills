@@ -114,3 +114,13 @@ Windows 指定版本：
 ## Standalone Runtime Note
 
 `xfchat-bootstrapper` no longer requires an external `lark-cli` binary in the normal startup path (`lark-cli.exe` on Windows, `lark-cli` on macOS and Linux). For the release regression checklist, see [`docs/superpowers/specs/standalone-runtime-regression-checklist.md`](docs/superpowers/specs/standalone-runtime-regression-checklist.md).
+
+## Real Runtime Notes
+
+The real bootstrap flow is being moved fully inside `xfchat-bootstrapper` itself. The target runtime shape is:
+
+- reuse a logged-in Chrome or Edge profile by default
+- handle OAuth through `http://localhost:8080/callback`
+- keep only bootstrapper-owned local state/config
+
+As this work lands, release validation should confirm the runtime reaches internal browser/OAuth handling rather than failing on any external CLI dependency.

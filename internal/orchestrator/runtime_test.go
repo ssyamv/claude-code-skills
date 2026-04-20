@@ -21,11 +21,11 @@ func TestRunThreadsLoadedStateIntoPlatformSetupRunner(t *testing.T) {
 				AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
 			}, nil
 		},
-		PlatformSetupRunner: runnerFunc(func(_ context.Context, current state.BootstrapState) error {
+		PlatformSetupRunner: stateAdvanceRunnerFunc(func(_ context.Context, current state.BootstrapState) (state.BootstrapState, error) {
 			got = current
-			return nil
+			return current, nil
 		}),
-		Validate: func(context.Context) error { return nil },
+		OAuthRunner: runnerFunc(func(context.Context, state.BootstrapState) error { return nil }),
 	}
 
 	if err := orch.Run(context.Background()); err != nil {
@@ -86,9 +86,9 @@ func TestNewWiresValidateDefaultUnimplementedForValidatePhase(t *testing.T) {
 
 	err := orch.Run(context.Background())
 	if err == nil {
-		t.Fatal("expected internal validate error")
+		t.Fatal("expected validation failure")
 	}
-	if !errors.Is(err, runtimeerrors.ErrValidationUnimplemented) {
-		t.Fatalf("expected validation unimplemented error, got %v", err)
+	if !errors.Is(err, runtimeerrors.ErrValidationFailed) {
+		t.Fatalf("expected validation failure, got %v", err)
 	}
 }
