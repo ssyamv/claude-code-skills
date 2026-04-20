@@ -10,6 +10,9 @@ import (
 type ChromedpRunner struct {
 	Navigate      func(context.Context, string) error
 	ClickCreate   func(context.Context, Workflow) error
+	EnsureCallback func(context.Context, Workflow) error
+	ApplyScopes    func(context.Context, Workflow) error
+	Publish        func(context.Context, Workflow) error
 	ExtractAppID  func(context.Context) (string, error)
 	ExtractAppURL func(context.Context) (string, error)
 }
@@ -27,6 +30,21 @@ func (r ChromedpRunner) RunWorkflow(ctx context.Context, wf Workflow) (PlatformS
 	}
 	if r.ClickCreate != nil {
 		if err := r.ClickCreate(ctx, wf); err != nil {
+			return PlatformSetupResult{}, err
+		}
+	}
+	if r.EnsureCallback != nil {
+		if err := r.EnsureCallback(ctx, wf); err != nil {
+			return PlatformSetupResult{}, err
+		}
+	}
+	if r.ApplyScopes != nil {
+		if err := r.ApplyScopes(ctx, wf); err != nil {
+			return PlatformSetupResult{}, err
+		}
+	}
+	if r.Publish != nil {
+		if err := r.Publish(ctx, wf); err != nil {
 			return PlatformSetupResult{}, err
 		}
 	}
@@ -78,6 +96,24 @@ func NewDefaultAutomate(resolver ProfileResolver, goos string) AutomateFunc {
 			},
 			ClickCreate: func(ctx context.Context, wf Workflow) error {
 				return chromedp.Run(ctx, chromedp.Click(wf.selectors.CreateButton, chromedp.NodeVisible))
+			},
+			EnsureCallback: func(ctx context.Context, wf Workflow) error {
+				return chromedp.Run(ctx,
+					chromedp.SetValue(wf.selectors.CallbackInput, wf.cfg.CallbackURL, chromedp.NodeVisible),
+				)
+			},
+			ApplyScopes: func(ctx context.Context, wf Workflow) error {
+				for _, scope := range wf.RequiredScopes() {
+					if err := chromedp.Run(ctx,
+						chromedp.SetValue(wf.selectors.ScopeSearchInput, scope, chromedp.NodeVisible),
+					); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+			Publish: func(ctx context.Context, wf Workflow) error {
+				return chromedp.Run(ctx, chromedp.Click(wf.selectors.PublishButton, chromedp.NodeVisible))
 			},
 			ExtractAppID: func(ctx context.Context) (string, error) {
 				var appID string

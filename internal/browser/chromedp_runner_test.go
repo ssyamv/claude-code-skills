@@ -55,6 +55,21 @@ func TestChromedpRunnerRunsEntryThenCreateThenCapture(t *testing.T) {
 			calls = append(calls, "create:"+wf.selectors.CreateButton)
 			return nil
 		},
+		EnsureCallback: func(_ context.Context, wf Workflow) error {
+			calls = append(calls, "callback:"+wf.selectors.CallbackInput)
+			return nil
+		},
+		ApplyScopes: func(_ context.Context, wf Workflow) error {
+			calls = append(calls, "scopes")
+			for _, scope := range wf.RequiredScopes() {
+				calls = append(calls, "scope:"+scope)
+			}
+			return nil
+		},
+		Publish: func(_ context.Context, wf Workflow) error {
+			calls = append(calls, "publish:"+wf.selectors.PublishButton)
+			return nil
+		},
 		ExtractAppID: func(context.Context) (string, error) {
 			calls = append(calls, "app_id")
 			return "cli_123", nil
@@ -68,6 +83,10 @@ func TestChromedpRunnerRunsEntryThenCreateThenCapture(t *testing.T) {
 	result, err := runner.RunWorkflow(context.Background(), NewWorkflow(WorkflowConfig{
 		AppEntryURL: "https://open.xfchat.iflytek.com/app",
 		CallbackURL: "http://localhost:8080/callback",
+		RequiredScopes: []string{
+			"docs:document:readonly",
+			"im:message:create_as_bot",
+		},
 	}))
 	if err != nil {
 		t.Fatalf("run workflow failed: %v", err)
@@ -79,6 +98,11 @@ func TestChromedpRunnerRunsEntryThenCreateThenCapture(t *testing.T) {
 	expected := []string{
 		"navigate:https://open.xfchat.iflytek.com/app",
 		"create:button[data-testid=\"create-app\"]",
+		"callback:input[value=\"http://localhost:8080/callback\"]",
+		"scopes",
+		"scope:docs:document:readonly",
+		"scope:im:message:create_as_bot",
+		"publish:button[data-testid=\"publish\"]",
 		"app_id",
 		"app_url",
 	}
