@@ -29,6 +29,7 @@ func TestRunReturnsInternalOAuthErrorInsteadOfMissingBinary(t *testing.T) {
 }
 
 func TestRunnerWaitsForCallbackSuccess(t *testing.T) {
+	var openedURL string
 	runner := Runner{
 		StartCallbackServer: func() (CallbackWaiter, error) {
 			return waiterFunc{
@@ -38,9 +39,19 @@ func TestRunnerWaitsForCallbackSuccess(t *testing.T) {
 				},
 			}, nil
 		},
+		OpenAuthorization: func(_ context.Context, url string, current state.BootstrapState) error {
+			openedURL = url
+			if current.Phase != state.PhaseOAuth {
+				t.Fatalf("expected oauth state, got %#v", current)
+			}
+			return nil
+		},
 	}
 
 	if err := runner.Run(context.Background(), state.BootstrapState{Phase: state.PhaseOAuth}); err != nil {
 		t.Fatalf("oauth run failed: %v", err)
+	}
+	if openedURL != "http://127.0.0.1:18080/callback" {
+		t.Fatalf("expected callback url to be passed to opener, got %q", openedURL)
 	}
 }

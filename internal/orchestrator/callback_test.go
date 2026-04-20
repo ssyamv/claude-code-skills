@@ -9,7 +9,7 @@ import (
 )
 
 func TestCallbackServerCapturesSuccessRequest(t *testing.T) {
-	server, err := NewCallbackServer()
+	server, err := NewEphemeralCallbackServer()
 	if err != nil {
 		t.Fatalf("new callback server: %v", err)
 	}

@@ -10,11 +10,10 @@ import (
 // Runner is the internal OAuth phase runner skeleton.
 type Runner struct {
 	StartCallbackServer func() (CallbackWaiter, error)
+	OpenAuthorization   func(context.Context, string, state.BootstrapState) error
 }
 
 func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
-	_ = current
-
 	start := r.StartCallbackServer
 	if start == nil {
 		start = StartCallbackServer
@@ -23,6 +22,12 @@ func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
 	waiter, err := start()
 	if err != nil {
 		return err
+	}
+
+	if r.OpenAuthorization != nil {
+		if err := r.OpenAuthorization(ctx, waiter.URL(), current); err != nil {
+			return err
+		}
 	}
 
 	result, err := waiter.Wait(ctx)

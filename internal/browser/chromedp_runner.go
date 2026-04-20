@@ -9,6 +9,7 @@ import (
 
 type ChromedpRunner struct {
 	Navigate      func(context.Context, string) error
+	ClickCreate   func(context.Context, Workflow) error
 	ExtractAppID  func(context.Context) (string, error)
 	ExtractAppURL func(context.Context) (string, error)
 }
@@ -18,6 +19,18 @@ func (r ChromedpRunner) OpenEntry(ctx context.Context, wf Workflow) error {
 		return errRunnerUnimplemented
 	}
 	return r.Navigate(ctx, wf.AppEntryURL())
+}
+
+func (r ChromedpRunner) RunWorkflow(ctx context.Context, wf Workflow) (PlatformSetupResult, error) {
+	if err := r.OpenEntry(ctx, wf); err != nil {
+		return PlatformSetupResult{}, err
+	}
+	if r.ClickCreate != nil {
+		if err := r.ClickCreate(ctx, wf); err != nil {
+			return PlatformSetupResult{}, err
+		}
+	}
+	return r.CaptureMetadata(ctx)
 }
 
 func (r ChromedpRunner) CaptureMetadata(ctx context.Context) (PlatformSetupResult, error) {
@@ -63,6 +76,9 @@ func NewDefaultAutomate(resolver ProfileResolver, goos string) AutomateFunc {
 			Navigate: func(ctx context.Context, url string) error {
 				return chromedp.Run(ctx, chromedp.Navigate(url))
 			},
+			ClickCreate: func(ctx context.Context, wf Workflow) error {
+				return chromedp.Run(ctx, chromedp.Click(wf.selectors.CreateButton, chromedp.NodeVisible))
+			},
 			ExtractAppID: func(ctx context.Context) (string, error) {
 				var appID string
 				if err := chromedp.Run(ctx, chromedp.Text(wf.selectors.AppIDValue, &appID, chromedp.NodeVisible)); err != nil {
@@ -82,7 +98,6 @@ func NewDefaultAutomate(resolver ProfileResolver, goos string) AutomateFunc {
 		if err := runner.OpenEntry(taskCtx, wf); err != nil {
 			return PlatformSetupResult{}, err
 		}
-
-		return runner.CaptureMetadata(taskCtx)
+		return runner.RunWorkflow(taskCtx, wf)
 	}
 }

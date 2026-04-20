@@ -44,6 +44,54 @@ func TestChromedpRunnerCapturesPlatformMetadata(t *testing.T) {
 	}
 }
 
+func TestChromedpRunnerRunsEntryThenCreateThenCapture(t *testing.T) {
+	var calls []string
+	runner := ChromedpRunner{
+		Navigate: func(_ context.Context, url string) error {
+			calls = append(calls, "navigate:"+url)
+			return nil
+		},
+		ClickCreate: func(_ context.Context, wf Workflow) error {
+			calls = append(calls, "create:"+wf.selectors.CreateButton)
+			return nil
+		},
+		ExtractAppID: func(context.Context) (string, error) {
+			calls = append(calls, "app_id")
+			return "cli_123", nil
+		},
+		ExtractAppURL: func(context.Context) (string, error) {
+			calls = append(calls, "app_url")
+			return "https://open.xfchat.iflytek.com/app/cli_123/baseinfo", nil
+		},
+	}
+
+	result, err := runner.RunWorkflow(context.Background(), NewWorkflow(WorkflowConfig{
+		AppEntryURL: "https://open.xfchat.iflytek.com/app",
+		CallbackURL: "http://localhost:8080/callback",
+	}))
+	if err != nil {
+		t.Fatalf("run workflow failed: %v", err)
+	}
+	if result.AppID != "cli_123" {
+		t.Fatalf("expected app id, got %#v", result)
+	}
+
+	expected := []string{
+		"navigate:https://open.xfchat.iflytek.com/app",
+		"create:button[data-testid=\"create-app\"]",
+		"app_id",
+		"app_url",
+	}
+	if len(calls) != len(expected) {
+		t.Fatalf("expected %d calls, got %d (%v)", len(expected), len(calls), calls)
+	}
+	for i := range expected {
+		if calls[i] != expected[i] {
+			t.Fatalf("call %d: expected %q, got %q", i, expected[i], calls[i])
+		}
+	}
+}
+
 func TestNewDefaultAutomateReturnsResolverError(t *testing.T) {
 	resolver := ProfileResolver{
 		LookPath: func(string) (string, error) {

@@ -10,6 +10,7 @@ import (
 )
 
 const callbackPath = "/callback"
+const defaultCallbackAddress = "127.0.0.1:8080"
 
 // CallbackResult captures the OAuth callback query parameters.
 type CallbackResult struct {
@@ -48,9 +49,9 @@ type CallbackServer struct {
 	once     sync.Once
 }
 
-// NewCallbackServer starts a localhost callback server on an ephemeral port.
-func NewCallbackServer() (*CallbackServer, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+// NewCallbackServer starts a localhost callback server on the provided address.
+func NewCallbackServer(address string) (*CallbackServer, error) {
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}
@@ -79,9 +80,14 @@ func NewCallbackServer() (*CallbackServer, error) {
 	return srv, nil
 }
 
-// StartCallbackServer starts a localhost callback server and returns a waiter for it.
+// NewEphemeralCallbackServer starts a localhost callback server on an ephemeral port.
+func NewEphemeralCallbackServer() (*CallbackServer, error) {
+	return NewCallbackServer("127.0.0.1:0")
+}
+
+// StartCallbackServer starts a localhost callback server on the default runtime callback address.
 func StartCallbackServer() (CallbackWaiter, error) {
-	return NewCallbackServer()
+	return NewCallbackServer(defaultCallbackAddress)
 }
 
 // URL returns the callback endpoint for the running server.
