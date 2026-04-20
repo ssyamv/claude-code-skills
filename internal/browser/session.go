@@ -1,6 +1,10 @@
 package browser
 
-import "github.com/chromedp/chromedp"
+import (
+	"context"
+
+	"github.com/chromedp/chromedp"
+)
 
 type sessionAllocatorConfig struct {
 	execPath    string
@@ -27,4 +31,14 @@ func SessionOptions(profile BrowserProfile) []chromedp.ExecAllocatorOption {
 		chromedp.Flag("headless", cfg.headless),
 		chromedp.Flag("no-first-run", cfg.noFirstRun),
 	}
+}
+
+func OpenURLWithProfile(ctx context.Context, profile BrowserProfile, url string) error {
+	allocCtx, cancelAlloc := chromedp.NewExecAllocator(ctx, SessionOptions(profile)...)
+	defer cancelAlloc()
+
+	taskCtx, cancelTask := chromedp.NewContext(allocCtx)
+	defer cancelTask()
+
+	return chromedp.Run(taskCtx, chromedp.Navigate(url))
 }

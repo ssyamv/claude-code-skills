@@ -23,6 +23,9 @@ func (r Runner) Run(ctx context.Context, current state.BootstrapState) (Platform
 	if result.AppURL == "" {
 		result.AppURL = current.AppURL
 	}
+	if result.AuthURL == "" {
+		result.AuthURL = current.AppURL
+	}
 	return result, nil
 }
 

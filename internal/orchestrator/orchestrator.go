@@ -37,7 +37,20 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 		LoadState:           store.Load,
 		SaveState:           store.Save,
 		PlatformSetupRunner: platformRunner,
-		OAuthRunner:         Runner{StartCallbackServer: StartCallbackServer},
+		OAuthRunner: Runner{
+			StartCallbackServer: StartCallbackServer,
+			OpenAuthorization: func(ctx context.Context, callbackURL string, current state.BootstrapState) error {
+				_ = callbackURL
+				if current.AppURL == "" {
+					return ErrOAuthUnimplemented
+				}
+				profile, err := (browser.ProfileResolver{LookPath: exec.LookPath}).Resolve(platform)
+				if err != nil {
+					return err
+				}
+				return browser.OpenURLWithProfile(ctx, profile, current.AppURL)
+			},
+		},
 	}
 }
 

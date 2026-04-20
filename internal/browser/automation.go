@@ -11,6 +11,7 @@ var errRunnerUnimplemented = runtimeerrors.ErrPlatformSetupUnimplemented
 type PlatformSetupResult struct {
 	AppID  string
 	AppURL string
+	AuthURL string
 }
 
 type AutomateFunc func(context.Context, Workflow) (PlatformSetupResult, error)
