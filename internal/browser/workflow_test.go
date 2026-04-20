@@ -64,3 +64,23 @@ func TestWorkflowExposesConfiguredEntryURLAndScopes(t *testing.T) {
 		t.Fatalf("expected required scopes to round-trip from config, got %#v", scopes)
 	}
 }
+
+func TestWorkflowBuildsKnownAppSubRoutes(t *testing.T) {
+	wf := NewWorkflow(WorkflowConfig{})
+
+	if got := wf.BaseInfoURL("cli_123"); got != "https://open.xfchat.iflytek.com/app/cli_123/baseinfo" {
+		t.Fatalf("unexpected baseinfo url: %q", got)
+	}
+	if got := wf.AuthURL("cli_123"); got != "https://open.xfchat.iflytek.com/app/cli_123/auth" {
+		t.Fatalf("unexpected auth url: %q", got)
+	}
+	if got := wf.EventURL("cli_123"); got != "https://open.xfchat.iflytek.com/app/cli_123/event" {
+		t.Fatalf("unexpected event url: %q", got)
+	}
+	if got := wf.SafeURL("cli_123"); got != "https://open.xfchat.iflytek.com/app/cli_123/safe" {
+		t.Fatalf("unexpected safe url: %q", got)
+	}
+	if got := wf.VersionURL("cli_123"); got != "https://open.xfchat.iflytek.com/app/cli_123/version" {
+		t.Fatalf("unexpected version url: %q", got)
+	}
+}

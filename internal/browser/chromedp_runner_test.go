@@ -97,7 +97,7 @@ func TestChromedpRunnerRunsEntryThenCreateThenCapture(t *testing.T) {
 
 	expected := []string{
 		"navigate:https://open.xfchat.iflytek.com/app",
-		"create:button[data-testid=\"create-app\"]",
+		"create:button.data-test__create-app-button",
 		"callback:input[value=\"http://localhost:8080/callback\"]",
 		"scopes",
 		"scope:docs:document:readonly",
