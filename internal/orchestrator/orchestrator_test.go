@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/config"
+	runtimeerrors "github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/errors"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
@@ -41,41 +42,105 @@ func TestRunResumesAtValidatePhase(t *testing.T) {
 	}
 }
 
-func TestRunExecutesThenValidatesForEarlierPhase(t *testing.T) {
-	var validateCalled bool
-	var executeCalled bool
-	var executedState state.BootstrapState
+func TestNewWiresInternalValidationDefaultForValidatePhase(t *testing.T) {
+	root := t.TempDir()
 
-	orch := Orchestrator{
-		LoadState: func() (state.BootstrapState, error) {
-			return state.BootstrapState{
-				Phase:  state.PhasePlatformSetup,
-				AppID:  "cli_123",
-				AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
-			}, nil
-		},
-		Validate: func(context.Context) error {
-			validateCalled = true
-			return nil
-		},
-		Execute: func(_ context.Context, current state.BootstrapState) error {
-			executeCalled = true
-			executedState = current
-			return nil
-		},
+	orch := New(config.Config{
+		InstallRoot: root,
+		CallbackURL: "http://localhost:8080/callback",
+	}, state.NewStore(root), "windows")
+	orch.LoadState = func() (state.BootstrapState, error) {
+		return state.BootstrapState{
+			Phase:  state.PhaseValidate,
+			AppID:  "cli_123",
+			AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+		}, nil
+	}
+
+	err := orch.Run(context.Background())
+	if err == nil {
+		t.Fatal("expected internal validation error")
+	}
+	if !errors.Is(err, runtimeerrors.ErrValidationUnimplemented) {
+		t.Fatalf("expected internal validation sentinel, got %v", err)
+	}
+}
+
+func TestNewAllowsRuntimeFallbackForLoadedPlatformPhase(t *testing.T) {
+	var calls []string
+	var executedState state.BootstrapState
+	root := t.TempDir()
+
+	orch := New(config.Config{
+		InstallRoot: root,
+		CallbackURL: "http://localhost:8080/callback",
+	}, state.NewStore(root), "windows")
+	orch.LoadState = func() (state.BootstrapState, error) {
+		return state.BootstrapState{
+			Phase:  state.PhasePlatformSetup,
+			AppID:  "cli_123",
+			AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+		}, nil
+	}
+	orch.Execute = func(_ context.Context, current state.BootstrapState) error {
+		calls = append(calls, "execute")
+		executedState = current
+		return nil
+	}
+	orch.Validate = func(context.Context) error {
+		calls = append(calls, "validate")
+		return runtimeerrors.ErrValidationUnimplemented
 	}
 
 	if err := orch.Run(context.Background()); err != nil {
-		t.Fatalf("run failed: %v", err)
+		if !errors.Is(err, runtimeerrors.ErrValidationUnimplemented) {
+			t.Fatalf("run failed: %v", err)
+		}
 	}
-	if !executeCalled {
-		t.Fatal("expected execute to be called")
+	if len(calls) != 2 || calls[0] != "execute" || calls[1] != "validate" {
+		t.Fatalf("expected execute -> validate ordering, got %v", calls)
 	}
 	if executedState.Phase != state.PhasePlatformSetup || executedState.AppID != "cli_123" || executedState.AppURL == "" {
 		t.Fatalf("expected loaded state to be threaded into execute, got %#v", executedState)
 	}
-	if !validateCalled {
-		t.Fatal("expected validate to be called after execute")
+}
+
+func TestNewAllowsRuntimeFallbackForLoadedOAuthPhase(t *testing.T) {
+	var calls []string
+	var executedState state.BootstrapState
+	root := t.TempDir()
+
+	orch := New(config.Config{
+		InstallRoot: root,
+		CallbackURL: "http://localhost:8080/callback",
+	}, state.NewStore(root), "windows")
+	orch.LoadState = func() (state.BootstrapState, error) {
+		return state.BootstrapState{
+			Phase:  state.PhaseOAuth,
+			AppID:  "cli_123",
+			AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+		}, nil
+	}
+	orch.Execute = func(_ context.Context, current state.BootstrapState) error {
+		calls = append(calls, "execute")
+		executedState = current
+		return nil
+	}
+	orch.Validate = func(context.Context) error {
+		calls = append(calls, "validate")
+		return runtimeerrors.ErrValidationUnimplemented
+	}
+
+	if err := orch.Run(context.Background()); err != nil {
+		if !errors.Is(err, runtimeerrors.ErrValidationUnimplemented) {
+			t.Fatalf("run failed: %v", err)
+		}
+	}
+	if len(calls) != 2 || calls[0] != "execute" || calls[1] != "validate" {
+		t.Fatalf("expected execute -> validate ordering, got %v", calls)
+	}
+	if executedState.Phase != state.PhaseOAuth || executedState.AppID != "cli_123" || executedState.AppURL == "" {
+		t.Fatalf("expected loaded state to be threaded into execute, got %#v", executedState)
 	}
 }
 

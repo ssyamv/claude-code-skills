@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/config"
+	runtimeerrors "github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/errors"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
@@ -20,10 +21,8 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 	_ = cfg
 	_ = platform
 	return Orchestrator{
-		LoadState:           store.Load,
-		PlatformSetupRunner: runnerFunc(func(context.Context, state.BootstrapState) error { return ErrPlatformSetupUnimplemented }),
-		OAuthRunner:         runnerFunc(func(context.Context, state.BootstrapState) error { return ErrOAuthUnimplemented }),
-		Validate:            func(context.Context) error { return ErrValidationUnimplemented },
+		LoadState: store.Load,
+		Validate:  func(context.Context) error { return runtimeerrors.ErrValidationUnimplemented },
 	}
 }
 

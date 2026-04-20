@@ -1,5 +1,7 @@
 package errors
 
+import "errors"
+
 // Kind classifies a bootstrap failure for recovery and presentation.
 type Kind string
 
@@ -8,6 +10,8 @@ const (
 	KindUserActionable     Kind = "user_actionable"
 	KindPlatformActionable Kind = "platform_actionable"
 )
+
+var ErrValidationUnimplemented = errors.New("internal validation not implemented")
 
 // BootstrapError captures the failure kind and user-facing message.
 type BootstrapError struct {
