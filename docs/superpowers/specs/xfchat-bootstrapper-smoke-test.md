@@ -41,3 +41,7 @@ make build
 - `make test` completes successfully.
 - Release binaries are written to `dist/`.
 - The smoke test and build scripts do create `dist/` artifacts, so the worktree may be dirty until you run `make clean`.
+
+## Standalone Runtime Regression Note
+
+Before release, also verify the standalone runtime does not fail because an external `lark-cli` binary is missing (`lark-cli.exe` on Windows, `lark-cli` on macOS and Linux). Use [`docs/superpowers/specs/standalone-runtime-regression-checklist.md`](docs/superpowers/specs/standalone-runtime-regression-checklist.md) as the release regression checklist for that scenario.

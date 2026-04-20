@@ -110,3 +110,7 @@ Windows 指定版本：
 ## Smoke Test
 
 发布前按照 [`docs/superpowers/specs/xfchat-bootstrapper-smoke-test.md`](docs/superpowers/specs/xfchat-bootstrapper-smoke-test.md) 执行 smoke test。最低限度先确认 `make test` 通过，然后检查打包产物是否生成在 `dist/`。`make build` 和发布脚本都会生成 `dist/` 里的二进制文件；如果想清理这些产物，运行 `make clean`。
+
+## Standalone Runtime Note
+
+`xfchat-bootstrapper` no longer requires an external `lark-cli` binary in the normal startup path (`lark-cli.exe` on Windows, `lark-cli` on macOS and Linux). For the release regression checklist, see [`docs/superpowers/specs/standalone-runtime-regression-checklist.md`](docs/superpowers/specs/standalone-runtime-regression-checklist.md).
