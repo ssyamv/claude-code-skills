@@ -3,8 +3,6 @@ package orchestrator
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/config"
@@ -81,24 +79,19 @@ func TestRunExecutesThenValidatesForEarlierPhase(t *testing.T) {
 	}
 }
 
-func TestNewUsesWindowsBinaryName(t *testing.T) {
+func TestNewDoesNotRequireExternalLarkCLIToStart(t *testing.T) {
 	root := t.TempDir()
-	binDir := filepath.Join(root, "XfchatLarkCli", "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Fatalf("mkdir bin dir: %v", err)
-	}
-
-	exePath := filepath.Join(binDir, "lark-cli.exe")
-	if err := os.WriteFile(exePath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatalf("write fake cli: %v", err)
-	}
 
 	orch := New(config.Config{
 		InstallRoot: root,
 		CallbackURL: "http://localhost:8080/callback",
 	}, state.NewStore(root), "windows")
 
+	if orch.LoadState == nil {
+		t.Fatal("expected load state to be wired")
+	}
+
 	if err := orch.Run(context.Background()); err != nil {
-		t.Fatalf("run failed: %v", err)
+		t.Fatalf("expected startup to succeed without external lark-cli, got %v", err)
 	}
 }
