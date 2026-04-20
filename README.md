@@ -49,6 +49,8 @@ Windows 环境下可使用：
 
 ## Xfchat Bootstrapper Install
 
+These one-line commands fetch installer scripts from `raw.githubusercontent.com`, and those scripts then resolve and download bootstrapper binaries from GitHub Releases.
+
 macOS latest:
 
 ```bash
@@ -72,6 +74,8 @@ Windows pinned:
 ```powershell
 &([scriptblock]::Create((irm https://raw.githubusercontent.com/ssyamv/claude-code-skills/main/install/install.ps1))) -Version v0.1.0
 ```
+
+GitHub Releases must contain the matching platform assets for each published tag, or the installer will fail when resolving the download URL.
 
 ## Smoke Test
 

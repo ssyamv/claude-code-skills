@@ -29,6 +29,13 @@ make build
 5. Confirm `lark-cli config show` reports `xfchat.iflytek.com`.
 6. Confirm `lark-cli auth status` succeeds.
 
+## Installer Validation
+
+1. macOS latest: confirm the one-line command fetches the installer script from `raw.githubusercontent.com`, then resolves and downloads the release binary from GitHub Releases.
+2. macOS explicit tag: confirm the pinned one-line command fetches the installer script from `raw.githubusercontent.com`, then resolves and downloads the tagged release binary from GitHub Releases.
+3. Windows latest: confirm the one-line command fetches the installer script from `raw.githubusercontent.com`, then resolves and downloads the release binary from GitHub Releases.
+4. Windows explicit tag: confirm the pinned one-line command fetches the installer script from `raw.githubusercontent.com`, then resolves and downloads the tagged release binary from GitHub Releases.
+
 ## Expected Outputs
 
 - `make test` completes successfully.
