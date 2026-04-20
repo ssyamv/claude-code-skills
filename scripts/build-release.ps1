@@ -31,7 +31,7 @@ foreach ($file in $requiredFiles) {
 
 $expectedFiles = $requiredFiles | Sort-Object
 $actualFiles = Get-ChildItem -Path dist -Recurse -File | ForEach-Object {
-  $_.FullName.Substring((Get-Location).Path.Length + 1)
+  $_.FullName.Substring((Get-Location).Path.Length + 1) -replace '\\', '/'
 } | Sort-Object
 
 if (($actualFiles -join "`n") -ne ($expectedFiles -join "`n")) {

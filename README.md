@@ -38,7 +38,7 @@ git merge skills/main --allow-unrelated-histories
 ```bash
 make build
 make test
-./scripts/build-release.sh
+make release
 ```
 
 Windows 环境下可使用：
@@ -46,6 +46,8 @@ Windows 环境下可使用：
 ```powershell
 ./scripts/build-release.ps1
 ```
+
+Windows installer 和 release 产物当前仅支持 x64（AMD64）；对应的发布资产是 `xfchat-bootstrapper-windows-amd64.exe`。
 
 ## Xfchat Bootstrapper Install
 
