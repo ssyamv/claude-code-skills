@@ -27,3 +27,20 @@ func TestRunReturnsInternalOAuthErrorInsteadOfMissingBinary(t *testing.T) {
 		t.Fatalf("expected internal oauth sentinel, got %v", err)
 	}
 }
+
+func TestRunnerWaitsForCallbackSuccess(t *testing.T) {
+	runner := Runner{
+		StartCallbackServer: func() (CallbackWaiter, error) {
+			return waiterFunc{
+				url: "http://127.0.0.1:18080/callback",
+				wait: func(context.Context) (CallbackResult, error) {
+					return CallbackResult{Code: "ok"}, nil
+				},
+			}, nil
+		},
+	}
+
+	if err := runner.Run(context.Background(), state.BootstrapState{Phase: state.PhaseOAuth}); err != nil {
+		t.Fatalf("oauth run failed: %v", err)
+	}
+}

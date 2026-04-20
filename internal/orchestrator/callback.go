@@ -19,6 +19,25 @@ type CallbackResult struct {
 	ErrorDescription string
 }
 
+// CallbackWaiter waits for a single OAuth callback result.
+type CallbackWaiter interface {
+	URL() string
+	Wait(context.Context) (CallbackResult, error)
+}
+
+type waiterFunc struct {
+	url  string
+	wait func(context.Context) (CallbackResult, error)
+}
+
+func (f waiterFunc) URL() string {
+	return f.url
+}
+
+func (f waiterFunc) Wait(ctx context.Context) (CallbackResult, error) {
+	return f.wait(ctx)
+}
+
 // CallbackServer listens on localhost for a single OAuth redirect callback.
 type CallbackServer struct {
 	url      string
@@ -58,6 +77,11 @@ func NewCallbackServer() (*CallbackServer, error) {
 	}()
 
 	return srv, nil
+}
+
+// StartCallbackServer starts a localhost callback server and returns a waiter for it.
+func StartCallbackServer() (CallbackWaiter, error) {
+	return NewCallbackServer()
 }
 
 // URL returns the callback endpoint for the running server.

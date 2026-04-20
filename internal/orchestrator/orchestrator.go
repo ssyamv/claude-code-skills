@@ -33,7 +33,7 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 		LoadState:           store.Load,
 		SaveState:           store.Save,
 		PlatformSetupRunner: platformRunner,
-		OAuthRunner:         Runner{},
+		OAuthRunner:         Runner{StartCallbackServer: StartCallbackServer},
 	}
 }
 
