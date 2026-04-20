@@ -2,23 +2,33 @@ package browser
 
 import (
 	"context"
-	"errors"
 	"testing"
 
-	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/orchestrator"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
-func TestRunnerReturnsInternalUnimplementedErrorInsteadOfShellingOut(t *testing.T) {
-	runner := Runner{}
-
-	err := runner.Run(context.Background(), state.BootstrapState{
-		Phase: state.PhasePlatformSetup,
-	})
-	if err == nil {
-		t.Fatal("expected internal unimplemented error")
+func TestRunnerReturnsPlatformSetupMetadata(t *testing.T) {
+	runner := Runner{
+		Automate: func(context.Context, Workflow) (PlatformSetupResult, error) {
+			return PlatformSetupResult{
+				AppID:  "cli_123",
+				AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+			}, nil
+		},
+		Workflow: NewWorkflow(WorkflowConfig{
+			AppEntryURL: "https://open.xfchat.iflytek.com/app",
+			CallbackURL: "http://localhost:8080/callback",
+		}),
 	}
-	if !errors.Is(err, orchestrator.ErrPlatformSetupUnimplemented) {
-		t.Fatalf("expected unimplemented error, got %v", err)
+
+	result, err := runner.Run(context.Background(), state.BootstrapState{})
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if result.AppID != "cli_123" {
+		t.Fatalf("expected app id, got %#v", result)
+	}
+	if result.AppURL != "https://open.xfchat.iflytek.com/app/cli_123/baseinfo" {
+		t.Fatalf("expected app url, got %#v", result)
 	}
 }

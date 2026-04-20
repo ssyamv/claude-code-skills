@@ -3,12 +3,19 @@ package browser
 import (
 	"context"
 
-	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/orchestrator"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
-type Runner struct{}
+type Runner struct {
+	Workflow Workflow
+	Automate AutomateFunc
+}
 
-func (Runner) Run(context.Context, state.BootstrapState) error {
-	return orchestrator.ErrPlatformSetupUnimplemented
+func (r Runner) Run(ctx context.Context, current state.BootstrapState) (PlatformSetupResult, error) {
+	_ = current
+
+	if r.Automate == nil {
+		return PlatformSetupResult{}, errRunnerUnimplemented
+	}
+	return r.Automate(ctx, r.Workflow)
 }
