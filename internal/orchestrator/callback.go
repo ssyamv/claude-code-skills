@@ -95,6 +95,11 @@ func (s *CallbackServer) URL() string {
 	return s.url
 }
 
+func (s *CallbackServer) Close() error {
+	s.shutdown()
+	return nil
+}
+
 // Wait blocks until a callback request arrives or ctx is canceled.
 func (s *CallbackServer) Wait(ctx context.Context) (CallbackResult, error) {
 	select {

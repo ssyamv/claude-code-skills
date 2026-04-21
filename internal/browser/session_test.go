@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -97,5 +98,89 @@ func TestResolveProfileStillReportsUnsupportedGOOS(t *testing.T) {
 
 	if _, err := resolver.Resolve("linux"); err == nil {
 		t.Fatal("expected unsupported platform failure")
+	}
+}
+
+func TestOpenURLDetachedWithProfileBuildsDetachedCommand(t *testing.T) {
+	oldStart := startDetachedBrowserProcessFn
+	t.Cleanup(func() {
+		startDetachedBrowserProcessFn = oldStart
+	})
+
+	var gotProfile BrowserProfile
+	var gotURL string
+	startDetachedBrowserProcessFn = func(profile BrowserProfile, url string) error {
+		gotProfile = profile
+		gotURL = url
+		return nil
+	}
+
+	profile := BrowserProfile{
+		BinaryPath:  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+		UserDataDir: "/tmp/chrome-profile",
+	}
+	if err := OpenURLDetachedWithProfile(profile, "https://open.xfchat.iflytek.com/oauth/authorize?app_id=cli_123"); err != nil {
+		t.Fatalf("detached open failed: %v", err)
+	}
+	if gotProfile.BinaryPath != profile.BinaryPath {
+		t.Fatalf("expected profile to be forwarded, got %#v", gotProfile)
+	}
+	if gotURL != "https://open.xfchat.iflytek.com/oauth/authorize?app_id=cli_123" {
+		t.Fatalf("expected url to be forwarded, got %q", gotURL)
+	}
+}
+
+func TestOpenURLDetachedWithProfileRejectsEmptyInputs(t *testing.T) {
+	if err := OpenURLDetachedWithProfile(BrowserProfile{}, "https://open.xfchat.iflytek.com/oauth/authorize?app_id=cli_123"); err == nil {
+		t.Fatal("expected empty binary path to fail")
+	}
+	if err := OpenURLDetachedWithProfile(BrowserProfile{BinaryPath: "/bin/browser"}, ""); err == nil {
+		t.Fatal("expected empty url to fail")
+	}
+}
+
+func TestPrepareAutomationProfileCopiesProfileToNonDefaultDirectory(t *testing.T) {
+	source := t.TempDir()
+	if err := os.WriteFile(filepath.Join(source, "Local State"), []byte("state"), 0o600); err != nil {
+		t.Fatalf("write local state: %v", err)
+	}
+	if err := os.Symlink("stale-lock", filepath.Join(source, "SingletonLock")); err != nil {
+		t.Fatalf("write singleton lock: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "DevToolsActivePort"), []byte("9222"), 0o600); err != nil {
+		t.Fatalf("write devtools port: %v", err)
+	}
+	cacheDir := filepath.Join(source, "Default", "Cache")
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		t.Fatalf("mkdir cache: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cacheDir, "entry"), []byte("cache"), 0o600); err != nil {
+		t.Fatalf("write cache: %v", err)
+	}
+
+	got, cleanup, err := prepareAutomationProfile(BrowserProfile{
+		BrowserName: "chrome",
+		BinaryPath:  "/bin/browser",
+		UserDataDir: source,
+	})
+	if err != nil {
+		t.Fatalf("prepare profile failed: %v", err)
+	}
+	defer cleanup()
+
+	if got.UserDataDir == "" || got.UserDataDir == source {
+		t.Fatalf("expected copied user data dir, got %#v", got)
+	}
+	if _, err := os.Stat(filepath.Join(got.UserDataDir, "Local State")); err != nil {
+		t.Fatalf("expected local state to be copied: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(got.UserDataDir, "SingletonLock")); !os.IsNotExist(err) {
+		t.Fatalf("expected singleton lock to be skipped, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(got.UserDataDir, "DevToolsActivePort")); !os.IsNotExist(err) {
+		t.Fatalf("expected devtools port to be skipped, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(got.UserDataDir, "Default", "Cache", "entry")); !os.IsNotExist(err) {
+		t.Fatalf("expected cache entry to be skipped, got %v", err)
 	}
 }

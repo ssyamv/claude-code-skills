@@ -58,8 +58,10 @@ func TestRunAdvancesStateAfterPlatformSetupAndOAuth(t *testing.T) {
 	}
 	orch.PlatformSetupRunner = stateAdvanceRunnerFunc(func(context.Context, state.BootstrapState) (state.BootstrapState, error) {
 		return state.BootstrapState{
-			AppID:  "cli_123",
-			AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+			AppID:     "cli_123",
+			AppURL:    "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+			AppSecret: "secret-123",
+			AuthURL:   "https://open.xfchat.iflytek.com/oauth/authorize?app_id=cli_123",
 		}, nil
 	})
 	orch.OAuthRunner = runnerFunc(func(context.Context, state.BootstrapState) error {
@@ -81,8 +83,45 @@ func TestRunAdvancesStateAfterPlatformSetupAndOAuth(t *testing.T) {
 	if !got.AuthSuccess {
 		t.Fatalf("expected oauth success to be persisted, got %#v", got)
 	}
-	if got.AppID != "cli_123" || got.AppURL == "" {
+	if got.AppID != "cli_123" || got.AppURL == "" || got.AppSecret != "secret-123" || got.AuthURL == "" {
 		t.Fatalf("expected app metadata to persist, got %#v", got)
+	}
+}
+
+func TestRunInitializesMissingStateAtPlatformSetup(t *testing.T) {
+	root := t.TempDir()
+	store := state.NewStore(root)
+
+	orch := New(config.Config{}, store, "windows")
+	orch.LoadState = func() (state.BootstrapState, error) {
+		return store.Load()
+	}
+	orch.PlatformSetupRunner = stateAdvanceRunnerFunc(func(_ context.Context, current state.BootstrapState) (state.BootstrapState, error) {
+		if current.Phase != state.PhasePlatformSetup {
+			t.Fatalf("expected initialized platform setup phase, got %#v", current)
+		}
+		next := current
+		next.AppID = "cli_123"
+		next.AppURL = "https://open.xfchat.iflytek.com/app/cli_123/baseinfo"
+		next.AppSecret = "secret-123"
+		next.AuthURL = "https://open.xfchat.iflytek.com/oauth/authorize?app_id=cli_123"
+		return next, nil
+	})
+	orch.OAuthRunner = runnerFunc(func(context.Context, state.BootstrapState) error {
+		return nil
+	})
+	orch.Validate = func(context.Context) error { return nil }
+
+	if err := orch.Run(context.Background()); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+
+	got, err := store.Load()
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+	if got.Phase != state.PhaseValidate || !got.AuthSuccess || got.AppID != "cli_123" {
+		t.Fatalf("expected initialized bootstrap to complete, got %#v", got)
 	}
 }
 
@@ -204,11 +243,19 @@ func TestNewAllowsRuntimeFallbackForLoadedOAuthPhase(t *testing.T) {
 
 func TestNewDoesNotRequireExternalLarkCLIToStart(t *testing.T) {
 	root := t.TempDir()
+	store := state.NewStore(root)
+	if err := store.Save(state.BootstrapState{
+		Phase:       state.PhaseValidate,
+		AppID:       "cli_123",
+		AuthSuccess: true,
+	}); err != nil {
+		t.Fatalf("seed state failed: %v", err)
+	}
 
 	orch := New(config.Config{
 		InstallRoot: root,
 		CallbackURL: "http://localhost:8080/callback",
-	}, state.NewStore(root), "windows")
+	}, store, "windows")
 
 	if orch.LoadState == nil {
 		t.Fatal("expected load state to be wired")

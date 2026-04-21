@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+
+	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/browser"
 )
 
 type Result struct {
@@ -12,9 +14,10 @@ type Result struct {
 }
 
 type Checker struct {
-	DetectDefaultBrowser func() (string, error)
-	CheckPort8080        func() error
-	CheckWritableRoot    func() error
+	DetectDefaultBrowser  func() (string, error)
+	ResolveBrowserProfile func(string) (browser.BrowserProfile, error)
+	CheckPort8080         func() error
+	CheckWritableRoot     func() error
 }
 
 func (c Checker) Run() (Result, error) {
@@ -28,6 +31,9 @@ func (c Checker) Run() (Result, error) {
 	}
 	if !isSupportedBrowser(browser) {
 		return Result{Supported: false, Reason: "default browser must be Chrome or Edge for release 1"}, nil
+	}
+	if err := c.checkBrowserProfile(); err != nil {
+		return Result{Supported: false, Reason: "browser profile could not be resolved"}, nil
 	}
 
 	if err := c.checkPort8080(); err != nil {
@@ -59,6 +65,14 @@ func (c Checker) checkWritableRoot() error {
 		return fmt.Errorf("CheckWritableRoot is not configured")
 	}
 	return c.CheckWritableRoot()
+}
+
+func (c Checker) checkBrowserProfile() error {
+	if c.ResolveBrowserProfile == nil {
+		return fmt.Errorf("ResolveBrowserProfile is not configured")
+	}
+	_, err := c.ResolveBrowserProfile(runtime.GOOS)
+	return err
 }
 
 func isSupportedPlatform(goos string) bool {

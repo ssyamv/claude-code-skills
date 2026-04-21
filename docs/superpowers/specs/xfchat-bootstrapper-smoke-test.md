@@ -49,3 +49,11 @@ Before release, also verify the standalone runtime does not fail because an exte
 ## Real Browser Validation
 
 Before release, also verify browser automation against the real open platform and a successful localhost callback flow.
+
+## macOS API-First Verification
+
+1. Start from a macOS machine with a logged-in Chrome or Edge profile for `open.xfchat.iflytek.com`.
+2. Run the bootstrapper build that includes the API-first platform setup runner.
+3. Confirm the setup phase succeeds without GUI page-clicking automation.
+4. Confirm the diagnostics output includes no raw cookie, CSRF, or bearer token values.
+5. Confirm OAuth opens the real authorization URL and the localhost callback succeeds.

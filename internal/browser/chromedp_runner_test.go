@@ -44,7 +44,7 @@ func TestChromedpRunnerCapturesPlatformMetadata(t *testing.T) {
 	}
 }
 
-func TestChromedpRunnerRunsEntryThenCreateThenCapture(t *testing.T) {
+func TestChromedpRunnerRunsObservationStepsAndCapturesMetadata(t *testing.T) {
 	var calls []string
 	runner := ChromedpRunner{
 		Navigate: func(_ context.Context, url string) error {
@@ -84,8 +84,7 @@ func TestChromedpRunnerRunsEntryThenCreateThenCapture(t *testing.T) {
 		AppEntryURL: "https://open.xfchat.iflytek.com/app",
 		CallbackURL: "http://localhost:8080/callback",
 		RequiredScopes: []string{
-			"docs:document:readonly",
-			"im:message:create_as_bot",
+			"docx:document:readonly",
 		},
 	}))
 	if err != nil {
@@ -98,11 +97,10 @@ func TestChromedpRunnerRunsEntryThenCreateThenCapture(t *testing.T) {
 	expected := []string{
 		"navigate:https://open.xfchat.iflytek.com/app",
 		"create:button.data-test__create-app-button",
-		"callback:input[value=\"http://localhost:8080/callback\"]",
+		"callback:input[value=\"http://localhost:8080/callback\"], textarea",
 		"scopes",
-		"scope:docs:document:readonly",
-		"scope:im:message:create_as_bot",
-		"publish:button[data-testid=\"publish\"]",
+		"scope:docx:document:readonly",
+		"publish:button.ud__button--filled.ud__button--filled-default.ud__button--size-md",
 		"app_id",
 		"app_url",
 	}

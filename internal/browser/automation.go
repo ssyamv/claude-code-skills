@@ -9,9 +9,10 @@ import (
 var errRunnerUnimplemented = runtimeerrors.ErrPlatformSetupUnimplemented
 
 type PlatformSetupResult struct {
-	AppID  string
-	AppURL string
-	AuthURL string
+	AppID     string
+	AppURL    string
+	AppSecret string
+	AuthURL   string
 }
 
 type AutomateFunc func(context.Context, Workflow) (PlatformSetupResult, error)

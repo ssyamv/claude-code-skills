@@ -12,9 +12,11 @@ import (
 func TestStoreRoundTrip(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "nested"))
 	input := BootstrapState{
-		Phase:  PhasePlatformSetup,
-		AppID:  "cli_123",
-		AppURL: "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+		Phase:     PhasePlatformSetup,
+		AppID:     "cli_123",
+		AppURL:    "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+		AppSecret: "secret-123",
+		AuthURL:   "https://open.xfchat.iflytek.com/oauth/authorize?app_id=cli_123",
 		LastError: &RecoveryError{
 			Kind:    RecoveryKindRetryable,
 			Message: "temporary timeout",
@@ -32,6 +34,31 @@ func TestStoreRoundTrip(t *testing.T) {
 
 	if !reflect.DeepEqual(got, input) {
 		t.Fatalf("unexpected round trip state:\nwant: %#v\ngot:  %#v", input, got)
+	}
+}
+
+func TestStoreRoundTripPreservesAppSecretAndAuthURL(t *testing.T) {
+	root := t.TempDir()
+	store := NewStore(root)
+
+	want := BootstrapState{
+		Phase:       PhaseOAuth,
+		AppID:       "cli_123",
+		AppURL:      "https://open.xfchat.iflytek.com/app/cli_123/baseinfo",
+		AppSecret:   "secret-123",
+		AuthURL:     "https://open.xfchat.iflytek.com/oauth/authorize?app_id=cli_123",
+		AuthSuccess: false,
+	}
+	if err := store.Save(want); err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	got, err := store.Load()
+	if err != nil {
+		t.Fatalf("load failed: %v", err)
+	}
+	if got.AppSecret != want.AppSecret || got.AuthURL != want.AuthURL {
+		t.Fatalf("expected state round-trip, got %#v", got)
 	}
 }
 

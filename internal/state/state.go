@@ -57,6 +57,8 @@ type BootstrapState struct {
 	Phase       Phase          `json:"phase"`
 	AppID       string         `json:"app_id"`
 	AppURL      string         `json:"app_url"`
+	AppSecret   string         `json:"app_secret,omitempty"`
+	AuthURL     string         `json:"auth_url,omitempty"`
 	AuthSuccess bool           `json:"auth_success"`
 	LastError   *RecoveryError `json:"last_error,omitempty"`
 }

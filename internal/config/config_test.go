@@ -15,8 +15,7 @@ func TestDefaultConfig(t *testing.T) {
 		t.Fatalf("expected callback URL to be preconfigured, got %q", cfg.CallbackURL)
 	}
 	expectedScopes := []string{
-		"docs:document:readonly",
-		"im:message:create_as_bot",
+		"docx:document:readonly",
 	}
 	if !reflect.DeepEqual(cfg.RequiredScopes, expectedScopes) {
 		t.Fatalf("expected required scopes %v, got %v", expectedScopes, cfg.RequiredScopes)

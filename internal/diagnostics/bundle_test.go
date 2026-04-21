@@ -2,12 +2,15 @@ package diagnostics
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
 func TestRedactSecrets(t *testing.T) {
@@ -38,6 +41,41 @@ func TestRedactCommonSecretShapes(t *testing.T) {
 	}
 	if strings.Count(got, "[REDACTED]") < 3 {
 		t.Fatalf("expected multiple redactions, got %q", got)
+	}
+}
+
+func TestRedactRemovesCookieAndCSRFHeaders(t *testing.T) {
+	input := "Cookie: sid=cookie-123\nX-XSRF-TOKEN: csrf-123\nX-CSRF-Token: csrf-456\nAuthorization: Bearer token-123"
+
+	got := Redact(input)
+
+	if got == input {
+		t.Fatalf("expected redaction, got %q", got)
+	}
+	for _, secret := range []string{"cookie-123", "csrf-123", "csrf-456", "token-123"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("expected sensitive value %q to be redacted, got %q", secret, got)
+		}
+	}
+}
+
+func TestRedactRemovesJSONAppSecretFromState(t *testing.T) {
+	data, err := json.Marshal(state.BootstrapState{
+		AppID:     "cli_123",
+		AppSecret: "secret-123",
+		AuthURL:   "https://open.xfchat.iflytek.com/oauth/authorize?app_id=cli_123",
+	})
+	if err != nil {
+		t.Fatalf("marshal state failed: %v", err)
+	}
+
+	got := Redact(string(data))
+
+	if strings.Contains(got, "secret-123") {
+		t.Fatalf("app secret leaked into redacted state: %q", got)
+	}
+	if !strings.Contains(got, `"app_secret":"[REDACTED]"`) {
+		t.Fatalf("expected app_secret JSON redaction, got %q", got)
 	}
 }
 

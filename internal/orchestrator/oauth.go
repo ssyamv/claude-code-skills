@@ -13,10 +13,12 @@ type Runner struct {
 	OpenAuthorization   func(context.Context, string, state.BootstrapState) error
 }
 
+var startCallbackServerFn = StartCallbackServer
+
 func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
 	start := r.StartCallbackServer
 	if start == nil {
-		start = StartCallbackServer
+		start = startCallbackServerFn
 	}
 	if r.OpenAuthorization == nil {
 		return ErrOAuthUnimplemented
@@ -28,6 +30,7 @@ func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
 	}
 
 	if err := r.OpenAuthorization(ctx, waiter.URL(), current); err != nil {
+		closeCallbackWaiter(waiter)
 		return err
 	}
 
@@ -41,5 +44,18 @@ func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
 		}
 		return fmt.Errorf("oauth callback failed: %s", result.Error)
 	}
+	if result.Code == "" {
+		return fmt.Errorf("oauth callback missing code")
+	}
 	return nil
+}
+
+type callbackCloser interface {
+	Close() error
+}
+
+func closeCallbackWaiter(waiter CallbackWaiter) {
+	if closer, ok := waiter.(callbackCloser); ok {
+		_ = closer.Close()
+	}
 }

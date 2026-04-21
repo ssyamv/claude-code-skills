@@ -3,10 +3,14 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"net/url"
 	"os/exec"
+	"strings"
 
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/browser"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/config"
+	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/platformapi"
+	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/platformsetup"
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/state"
 )
 
@@ -20,17 +24,81 @@ type Orchestrator struct {
 }
 
 func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
-	_ = platform
-	platformRunner := browserPlatformSetupRunner{
-		Runner: browser.Runner{
-			Workflow: browser.NewWorkflow(browser.WorkflowConfig{
-				AppEntryURL:    "https://open.xfchat.iflytek.com/app",
-				CallbackURL:    cfg.CallbackURL,
-				RequiredScopes: cfg.RequiredScopes,
-			}),
-			Automate: browser.NewDefaultAutomate(browser.ProfileResolver{
-				LookPath: exec.LookPath,
-			}, platform),
+	workflow := browser.NewWorkflow(browser.WorkflowConfig{
+		AppEntryURL:    "https://open.xfchat.iflytek.com/app",
+		CallbackURL:    cfg.CallbackURL,
+		RequiredScopes: cfg.RequiredScopes,
+	})
+	profileResolver := browser.ProfileResolver{
+		LookPath: exec.LookPath,
+	}
+	platformClient := platformapi.Client{
+		BaseURL: "https://open.xfchat.iflytek.com",
+	}
+	platformRunner := platformsetup.Runner{
+		BootstrapSession: func(ctx context.Context) (browser.SessionContext, error) {
+			profile, err := profileResolver.Resolve(platform)
+			if err != nil {
+				return browser.SessionContext{}, err
+			}
+			bootstrap := browser.NewSessionBootstrap(profile)
+			return bootstrap.Bootstrap(ctx, profile, workflow.AppEntryURL())
+		},
+		CreateApp: func(ctx context.Context, session browser.SessionContext) (platformsetup.Result, error) {
+			created, err := platformClient.CreateApp(ctx, session, platformapi.CreateAppRequest{
+				Name: "lark_cli",
+			})
+			if err != nil {
+				return platformsetup.Result{}, err
+			}
+
+			if err := platformClient.EnsureRedirectURL(ctx, session, platformapi.EnsureRedirectURLRequest{
+				AppID:       created.AppID,
+				CallbackURL: cfg.CallbackURL,
+			}); err != nil {
+				return platformsetup.Result{}, err
+			}
+
+			if err := platformClient.EnsureScopes(ctx, session, platformapi.EnsureScopesRequest{
+				AppID:  created.AppID,
+				Scopes: workflow.RequiredScopes(),
+			}); err != nil {
+				return platformsetup.Result{}, err
+			}
+
+			if err := platformClient.CreateVersion(ctx, session, created.AppID); err != nil {
+				return platformsetup.Result{}, err
+			}
+			if err := platformClient.PublishVersion(ctx, session, platformapi.PublishVersionRequest{
+				AppID: created.AppID,
+			}); err != nil {
+				return platformsetup.Result{}, err
+			}
+
+			credentials, err := platformClient.GetAppCredentials(ctx, session, created.AppID)
+			if err != nil {
+				return platformsetup.Result{}, err
+			}
+
+			appURL := credentials.AppURL
+			if appURL == "" {
+				appURL = created.AppURL
+			}
+			if appURL == "" {
+				appURL = workflow.BaseInfoURL(created.AppID)
+			}
+
+			appID := credentials.AppID
+			if appID == "" {
+				appID = created.AppID
+			}
+
+			return platformsetup.Result{
+				AppID:     appID,
+				AppURL:    appURL,
+				AppSecret: credentials.AppSecret,
+				AuthURL:   buildOAuthAuthorizationURL(appID, cfg.CallbackURL, workflow.RequiredScopes()),
+			}, nil
 		},
 	}
 	return Orchestrator{
@@ -41,17 +109,36 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 			StartCallbackServer: StartCallbackServer,
 			OpenAuthorization: func(ctx context.Context, callbackURL string, current state.BootstrapState) error {
 				_ = callbackURL
-				if current.AppURL == "" {
+				if current.AuthURL == "" {
 					return ErrOAuthUnimplemented
 				}
-				profile, err := (browser.ProfileResolver{LookPath: exec.LookPath}).Resolve(platform)
+				profile, err := resolveBrowserProfileFn(platform)
 				if err != nil {
 					return err
 				}
-				return browser.OpenURLWithProfile(ctx, profile, current.AppURL)
+				return openOAuthURLWithProfile(ctx, profile, current.AuthURL)
 			},
 		},
 	}
+}
+
+var openOAuthURLWithProfile = browser.OpenAndConfirmOAuthWithProfile
+var resolveBrowserProfileFn = func(platform string) (browser.BrowserProfile, error) {
+	return (browser.ProfileResolver{LookPath: exec.LookPath}).Resolve(platform)
+}
+
+func buildOAuthAuthorizationURL(appID, callbackURL string, scopes []string) string {
+	values := url.Values{}
+	values.Set("app_id", appID)
+	if callbackURL != "" {
+		values.Set("redirect_uri", callbackURL)
+	}
+	authPath := "/open-apis/authen/v1/index"
+	if len(scopes) > 0 {
+		values.Set("scope", strings.Join(scopes, " "))
+		authPath = "/open-apis/authen/v1/authorize"
+	}
+	return "https://open.xfchat.iflytek.com" + authPath + "?" + values.Encode()
 }
 
 func (o Orchestrator) Run(ctx context.Context) error {
@@ -60,7 +147,10 @@ func (o Orchestrator) Run(ctx context.Context) error {
 		return err
 	}
 	if !loaded {
-		return nil
+		current = state.BootstrapState{Phase: state.PhasePlatformSetup}
+		if err := o.saveState(current); err != nil {
+			return err
+		}
 	}
 
 	if current.Phase == state.PhaseValidate {
@@ -160,17 +250,4 @@ func (o Orchestrator) saveState(current state.BootstrapState) error {
 		return nil
 	}
 	return o.SaveState(current)
-}
-
-type browserPlatformSetupRunner struct {
-	Runner browser.Runner
-}
-
-func (r browserPlatformSetupRunner) Run(ctx context.Context, current state.BootstrapState) error {
-	_, err := r.Runner.Run(ctx, current)
-	return err
-}
-
-func (r browserPlatformSetupRunner) RunState(ctx context.Context, current state.BootstrapState) (state.BootstrapState, error) {
-	return r.Runner.RunState(ctx, current)
 }

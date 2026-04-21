@@ -7,8 +7,7 @@ func TestWorkflowBuildsExpectedSteps(t *testing.T) {
 		AppEntryURL: "https://open.xfchat.iflytek.com/app",
 		CallbackURL: "http://localhost:8080/callback",
 		RequiredScopes: []string{
-			"docs:document:readonly",
-			"im:message:create_as_bot",
+			"docx:document:readonly",
 		},
 	})
 
@@ -38,7 +37,7 @@ func TestWorkflowThreadsCallbackURLIntoSelectors(t *testing.T) {
 		CallbackURL: "https://example.com/callback",
 	})
 
-	if wf.selectors.CallbackInput != `input[value="https://example.com/callback"]` {
+	if wf.selectors.CallbackInput != `input[value="https://example.com/callback"], textarea` {
 		t.Fatalf("expected callback selector to use config callback url, got %q", wf.selectors.CallbackInput)
 	}
 }
@@ -47,8 +46,7 @@ func TestWorkflowExposesConfiguredEntryURLAndScopes(t *testing.T) {
 	wf := NewWorkflow(WorkflowConfig{
 		AppEntryURL: "https://open.xfchat.iflytek.com/app",
 		RequiredScopes: []string{
-			"docs:document:readonly",
-			"im:message:create_as_bot",
+			"docx:document:readonly",
 		},
 	})
 
@@ -57,10 +55,10 @@ func TestWorkflowExposesConfiguredEntryURLAndScopes(t *testing.T) {
 	}
 
 	scopes := wf.RequiredScopes()
-	if len(scopes) != 2 {
-		t.Fatalf("expected 2 scopes, got %d", len(scopes))
+	if len(scopes) != 1 {
+		t.Fatalf("expected 1 scope, got %d", len(scopes))
 	}
-	if scopes[0] != "docs:document:readonly" || scopes[1] != "im:message:create_as_bot" {
+	if scopes[0] != "docx:document:readonly" {
 		t.Fatalf("expected required scopes to round-trip from config, got %#v", scopes)
 	}
 }

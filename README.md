@@ -120,6 +120,8 @@ Windows 指定版本：
 The real bootstrap flow is being moved fully inside `xfchat-bootstrapper` itself. The target runtime shape is:
 
 - reuse a logged-in Chrome or Edge profile by default
+- on macOS, platform setup uses browser-backed authenticated HTTP requests instead of GUI page clicking
+- the browser is still reused for logged-in session bootstrap and final OAuth authorization
 - handle OAuth through `http://localhost:8080/callback`
 - keep only bootstrapper-owned local state/config
 

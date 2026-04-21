@@ -24,7 +24,10 @@ func (r Runner) Run(ctx context.Context, current state.BootstrapState) (Platform
 		result.AppURL = current.AppURL
 	}
 	if result.AuthURL == "" {
-		result.AuthURL = current.AppURL
+		result.AuthURL = current.AuthURL
+	}
+	if result.AppSecret == "" {
+		result.AppSecret = current.AppSecret
 	}
 	return result, nil
 }
@@ -40,6 +43,8 @@ func (r Runner) RunState(ctx context.Context, current state.BootstrapState) (sta
 	next := current
 	next.AppID = result.AppID
 	next.AppURL = result.AppURL
+	next.AppSecret = result.AppSecret
+	next.AuthURL = result.AuthURL
 	return next, nil
 }
 

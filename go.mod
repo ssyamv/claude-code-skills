@@ -2,6 +2,8 @@ module github.com/ssyamv/claude-code-skills/xfchat-bootstrapper
 
 go 1.23
 
+replace github.com/chromedp/cdproto => ./third_party/cdproto
+
 require github.com/chromedp/chromedp v0.10.0
 
 require (

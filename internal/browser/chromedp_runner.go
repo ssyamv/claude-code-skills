@@ -7,14 +7,16 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+// ChromedpRunner remains available for controlled observation and debugging.
+// The default platform-setup success path is now API-first.
 type ChromedpRunner struct {
-	Navigate      func(context.Context, string) error
-	ClickCreate   func(context.Context, Workflow) error
+	Navigate       func(context.Context, string) error
+	ClickCreate    func(context.Context, Workflow) error
 	EnsureCallback func(context.Context, Workflow) error
 	ApplyScopes    func(context.Context, Workflow) error
 	Publish        func(context.Context, Workflow) error
-	ExtractAppID  func(context.Context) (string, error)
-	ExtractAppURL func(context.Context) (string, error)
+	ExtractAppID   func(context.Context) (string, error)
+	ExtractAppURL  func(context.Context) (string, error)
 }
 
 func (r ChromedpRunner) OpenEntry(ctx context.Context, wf Workflow) error {

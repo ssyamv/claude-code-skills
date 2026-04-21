@@ -18,8 +18,7 @@ func Default() Config {
 		Brand:       "xfchat.iflytek.com",
 		CallbackURL: "http://localhost:8080/callback",
 		RequiredScopes: []string{
-			"docs:document:readonly",
-			"im:message:create_as_bot",
+			"docx:document:readonly",
 		},
 		InstallRoot: defaultInstallRoot(),
 	}
