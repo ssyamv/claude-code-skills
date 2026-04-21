@@ -17,6 +17,7 @@ import (
 type Orchestrator struct {
 	LoadState           func() (state.BootstrapState, error)
 	SaveState           func(state.BootstrapState) error
+	StartCallbackServer func() (CallbackWaiter, error)
 	PlatformSetupRunner PlatformSetupRunner
 	OAuthRunner         OAuthRunner
 	Validate            func(context.Context) error
@@ -44,7 +45,10 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 			bootstrap := browser.NewSessionBootstrap(profile)
 			return bootstrap.Bootstrap(ctx, profile, workflow.AppEntryURL())
 		},
-		CreateApp: func(ctx context.Context, session browser.SessionContext) (platformsetup.Result, error) {
+		CreateAppWithCallbackURL: func(ctx context.Context, session browser.SessionContext, callbackURL string) (platformsetup.Result, error) {
+			if callbackURL == "" {
+				callbackURL = cfg.CallbackURL
+			}
 			created, err := platformClient.CreateApp(ctx, session, platformapi.CreateAppRequest{
 				Name: "lark_cli",
 			})
@@ -54,7 +58,7 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 
 			if err := platformClient.EnsureRedirectURL(ctx, session, platformapi.EnsureRedirectURLRequest{
 				AppID:       created.AppID,
-				CallbackURL: cfg.CallbackURL,
+				CallbackURL: callbackURL,
 			}); err != nil {
 				return platformsetup.Result{}, err
 			}
@@ -97,13 +101,14 @@ func New(cfg config.Config, store *state.Store, platform string) Orchestrator {
 				AppID:     appID,
 				AppURL:    appURL,
 				AppSecret: credentials.AppSecret,
-				AuthURL:   buildOAuthAuthorizationURL(appID, cfg.CallbackURL, workflow.RequiredScopes()),
+				AuthURL:   buildOAuthAuthorizationURL(appID, callbackURL, workflow.RequiredScopes()),
 			}, nil
 		},
 	}
 	return Orchestrator{
 		LoadState:           store.Load,
 		SaveState:           store.Save,
+		StartCallbackServer: StartCallbackServer,
 		PlatformSetupRunner: platformRunner,
 		OAuthRunner: Runner{
 			StartCallbackServer: StartCallbackServer,
@@ -169,18 +174,25 @@ func (o Orchestrator) Run(ctx context.Context) error {
 		return o.runValidate(ctx, current)
 	}
 
-	next, advanced, err := o.runPlatformSetup(ctx, current)
+	callback, err := o.startCallbackServer()
 	if err != nil {
+		return err
+	}
+
+	next, advanced, err := o.runPlatformSetup(ctx, current, callback.URL())
+	if err != nil {
+		closeCallbackWaiter(callback)
 		return err
 	}
 
 	if advanced {
 		next.Phase = state.PhaseOAuth
 		if err := o.saveState(next); err != nil {
+			closeCallbackWaiter(callback)
 			return err
 		}
 
-		if err := o.runOAuth(ctx, next); err != nil {
+		if err := o.runOAuthWithCallbackWaiter(ctx, next, callback); err != nil {
 			return err
 		}
 
@@ -193,6 +205,7 @@ func (o Orchestrator) Run(ctx context.Context) error {
 		return o.runValidate(ctx, next)
 	}
 
+	closeCallbackWaiter(callback)
 	return o.runValidate(ctx, current)
 }
 
@@ -221,7 +234,11 @@ func (o Orchestrator) runValidate(ctx context.Context, current state.BootstrapSt
 	return o.Validate(ctx)
 }
 
-func (o Orchestrator) runPlatformSetup(ctx context.Context, current state.BootstrapState) (state.BootstrapState, bool, error) {
+func (o Orchestrator) runPlatformSetup(ctx context.Context, current state.BootstrapState, callbackURL string) (state.BootstrapState, bool, error) {
+	if runner, ok := o.PlatformSetupRunner.(platformSetupCallbackStateRunner); ok {
+		next, err := runner.RunStateWithCallbackURL(ctx, current, callbackURL)
+		return next, true, err
+	}
 	if runner, ok := o.PlatformSetupRunner.(platformSetupStateRunner); ok {
 		next, err := runner.RunState(ctx, current)
 		return next, true, err
@@ -243,6 +260,22 @@ func (o Orchestrator) runOAuth(ctx context.Context, current state.BootstrapState
 		return o.Execute(ctx, current)
 	}
 	return ErrOAuthUnimplemented
+}
+
+func (o Orchestrator) runOAuthWithCallbackWaiter(ctx context.Context, current state.BootstrapState, callback CallbackWaiter) error {
+	if runner, ok := o.OAuthRunner.(oauthCallbackWaiterRunner); ok {
+		return runner.RunWithCallbackWaiter(ctx, current, callback)
+	}
+	closeCallbackWaiter(callback)
+	return o.runOAuth(ctx, current)
+}
+
+func (o Orchestrator) startCallbackServer() (CallbackWaiter, error) {
+	start := o.StartCallbackServer
+	if start == nil {
+		start = StartCallbackServer
+	}
+	return start()
 }
 
 func (o Orchestrator) saveState(current state.BootstrapState) error {

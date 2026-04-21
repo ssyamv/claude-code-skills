@@ -36,9 +36,7 @@ func (c Checker) Run() (Result, error) {
 		return Result{Supported: false, Reason: "browser profile could not be resolved"}, nil
 	}
 
-	if err := c.checkPort8080(); err != nil {
-		return Result{Supported: false, Reason: "port 8080 is unavailable"}, nil
-	}
+	_ = c.checkPort8080()
 	if err := c.checkWritableRoot(); err != nil {
 		return Result{Supported: false, Reason: "install directory is not writable"}, nil
 	}
@@ -55,7 +53,7 @@ func (c Checker) detectDefaultBrowser() (string, error) {
 
 func (c Checker) checkPort8080() error {
 	if c.CheckPort8080 == nil {
-		return fmt.Errorf("CheckPort8080 is not configured")
+		return nil
 	}
 	return c.CheckPort8080()
 }

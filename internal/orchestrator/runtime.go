@@ -19,9 +19,17 @@ type platformSetupStateRunner interface {
 	RunState(context.Context, state.BootstrapState) (state.BootstrapState, error)
 }
 
+type platformSetupCallbackStateRunner interface {
+	RunStateWithCallbackURL(context.Context, state.BootstrapState, string) (state.BootstrapState, error)
+}
+
 // OAuthRunner runs the internal OAuth phase.
 type OAuthRunner interface {
 	Run(context.Context, state.BootstrapState) error
+}
+
+type oauthCallbackWaiterRunner interface {
+	RunWithCallbackWaiter(context.Context, state.BootstrapState, CallbackWaiter) error
 }
 
 type runnerFunc func(context.Context, state.BootstrapState) error

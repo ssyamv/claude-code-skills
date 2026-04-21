@@ -51,7 +51,30 @@ func (c Client) CreateApp(ctx context.Context, session browser.SessionContext, i
 			}, nil
 		}
 	}
-	return CreateAppResult{}, fmt.Errorf("existing app %q not found", in.Name)
+	return c.createApp(ctx, session, in)
+}
+
+func (c Client) createApp(ctx context.Context, session browser.SessionContext, in CreateAppRequest) (CreateAppResult, error) {
+	var payload struct {
+		Data struct {
+			AppID  string `json:"app_id"`
+			AppURL string `json:"app_url"`
+		} `json:"data"`
+	}
+	if err := c.doJSON(ctx, session, http.MethodPost, "/api/apps", "/app", in, &payload); err != nil {
+		return CreateAppResult{}, err
+	}
+	if payload.Data.AppID == "" {
+		return CreateAppResult{}, fmt.Errorf("create app response missing app id")
+	}
+	appURL := payload.Data.AppURL
+	if appURL == "" {
+		appURL = joinURL(c.baseURL(session), "/app/"+url.PathEscape(payload.Data.AppID)+"/baseinfo")
+	}
+	return CreateAppResult{
+		AppID:  payload.Data.AppID,
+		AppURL: appURL,
+	}, nil
 }
 
 func (c Client) EnsureRedirectURL(ctx context.Context, session browser.SessionContext, in EnsureRedirectURLRequest) error {

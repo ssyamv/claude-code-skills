@@ -29,6 +29,15 @@ func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
 		return err
 	}
 
+	return r.RunWithCallbackWaiter(ctx, current, waiter)
+}
+
+func (r Runner) RunWithCallbackWaiter(ctx context.Context, current state.BootstrapState, waiter CallbackWaiter) error {
+	if r.OpenAuthorization == nil {
+		closeCallbackWaiter(waiter)
+		return ErrOAuthUnimplemented
+	}
+
 	if err := r.OpenAuthorization(ctx, waiter.URL(), current); err != nil {
 		closeCallbackWaiter(waiter)
 		return err

@@ -16,8 +16,9 @@ type Result struct {
 }
 
 type Runner struct {
-	BootstrapSession func(context.Context) (browser.SessionContext, error)
-	CreateApp        func(context.Context, browser.SessionContext) (Result, error)
+	BootstrapSession         func(context.Context) (browser.SessionContext, error)
+	CreateApp                func(context.Context, browser.SessionContext) (Result, error)
+	CreateAppWithCallbackURL func(context.Context, browser.SessionContext, string) (Result, error)
 }
 
 func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
@@ -26,7 +27,11 @@ func (r Runner) Run(ctx context.Context, current state.BootstrapState) error {
 }
 
 func (r Runner) RunState(ctx context.Context, current state.BootstrapState) (state.BootstrapState, error) {
-	if r.BootstrapSession == nil || r.CreateApp == nil {
+	return r.RunStateWithCallbackURL(ctx, current, "")
+}
+
+func (r Runner) RunStateWithCallbackURL(ctx context.Context, current state.BootstrapState, callbackURL string) (state.BootstrapState, error) {
+	if r.BootstrapSession == nil || (r.CreateApp == nil && r.CreateAppWithCallbackURL == nil) {
 		return state.BootstrapState{}, fmt.Errorf("platform setup runner is not configured")
 	}
 
@@ -35,7 +40,12 @@ func (r Runner) RunState(ctx context.Context, current state.BootstrapState) (sta
 		return state.BootstrapState{}, err
 	}
 
-	result, err := r.CreateApp(ctx, session)
+	var result Result
+	if r.CreateAppWithCallbackURL != nil {
+		result, err = r.CreateAppWithCallbackURL(ctx, session, callbackURL)
+	} else {
+		result, err = r.CreateApp(ctx, session)
+	}
 	if err != nil {
 		return state.BootstrapState{}, err
 	}
