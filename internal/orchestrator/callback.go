@@ -87,7 +87,16 @@ func NewEphemeralCallbackServer() (*CallbackServer, error) {
 
 // StartCallbackServer starts a localhost callback server on the default runtime callback address.
 func StartCallbackServer() (CallbackWaiter, error) {
-	return NewCallbackServer(defaultCallbackAddress)
+	return StartCallbackServerWithFallback(defaultCallbackAddress)
+}
+
+// StartCallbackServerWithFallback starts on preferredAddress, then falls back to an ephemeral localhost port.
+func StartCallbackServerWithFallback(preferredAddress string) (CallbackWaiter, error) {
+	server, err := NewCallbackServer(preferredAddress)
+	if err == nil {
+		return server, nil
+	}
+	return NewEphemeralCallbackServer()
 }
 
 // URL returns the callback endpoint for the running server.

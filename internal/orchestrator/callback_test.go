@@ -3,7 +3,9 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -47,5 +49,26 @@ func TestCallbackServerCapturesSuccessRequest(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for callback result")
+	}
+}
+
+func TestStartCallbackServerFallsBackToEphemeralWhenDefaultPortUnavailable(t *testing.T) {
+	occupied, err := net.Listen("tcp", defaultCallbackAddress)
+	if err != nil {
+		t.Skipf("default callback address is unavailable before test setup: %v", err)
+	}
+	defer occupied.Close()
+
+	server, err := StartCallbackServer()
+	if err != nil {
+		t.Fatalf("start callback server with fallback: %v", err)
+	}
+	defer closeCallbackWaiter(server)
+
+	if strings.Contains(server.URL(), ":8080/") {
+		t.Fatalf("expected fallback callback URL to avoid default port, got %q", server.URL())
+	}
+	if !strings.HasPrefix(server.URL(), "http://127.0.0.1:") {
+		t.Fatalf("expected localhost callback URL, got %q", server.URL())
 	}
 }

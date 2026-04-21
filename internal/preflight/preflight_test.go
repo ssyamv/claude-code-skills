@@ -48,3 +48,20 @@ func TestCheckRejectsMissingBrowserProfile(t *testing.T) {
 		t.Fatalf("unexpected reason: %q", result.Reason)
 	}
 }
+
+func TestCheckAllowsUnavailablePort8080BecauseRuntimeCanFallback(t *testing.T) {
+	checker := Checker{
+		DetectDefaultBrowser:  func() (string, error) { return "chrome", nil },
+		ResolveBrowserProfile: func(string) (browser.BrowserProfile, error) { return browser.BrowserProfile{}, nil },
+		CheckPort8080:         func() error { return errors.New("address already in use") },
+		CheckWritableRoot:     func() error { return nil },
+	}
+
+	result, err := checker.Run()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Supported {
+		t.Fatalf("expected unavailable port 8080 to be supported, got reason %q", result.Reason)
+	}
+}

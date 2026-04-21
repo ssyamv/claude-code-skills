@@ -87,6 +87,53 @@ func TestClientCreateAppUsesSessionHeadersAndParsesResponse(t *testing.T) {
 	}
 }
 
+func TestClientCreateAppCreatesWhenExistingAppMissing(t *testing.T) {
+	t.Helper()
+
+	var gotRequests []string
+	var gotCreateBody string
+
+	client := Client{
+		BaseURL: "https://open.xfchat.iflytek.com",
+		Do: func(req *http.Request) (*http.Response, error) {
+			gotRequests = append(gotRequests, req.Method+" "+req.URL.Path)
+			body, _ := io.ReadAll(req.Body)
+			if req.URL.Path == "/api/apps" {
+				gotCreateBody = string(body)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"data":{"app_id":"cli_new","app_url":"https://open.xfchat.iflytek.com/app/cli_new/baseinfo"}}`)),
+				}, nil
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"data":{"apps":[]}}`)),
+			}, nil
+		},
+	}
+
+	result, err := client.CreateApp(context.Background(), browser.SessionContext{
+		BaseURL: "https://open.xfchat.iflytek.com",
+		Cookies: []*http.Cookie{{Name: "sid", Value: "cookie-123", Domain: "open.xfchat.iflytek.com", Path: "/"}},
+	}, CreateAppRequest{Name: "lark_cli"})
+	if err != nil {
+		t.Fatalf("create app failed: %v", err)
+	}
+
+	if strings.Join(gotRequests, ",") != "POST /developers/v1/app/list,POST /api/apps" {
+		t.Fatalf("expected list then create requests, got %v", gotRequests)
+	}
+	if gotCreateBody != `{"name":"lark_cli"}` {
+		t.Fatalf("expected create request body, got %q", gotCreateBody)
+	}
+	if result.AppID != "cli_new" {
+		t.Fatalf("expected created app id, got %#v", result)
+	}
+	if result.AppURL != "https://open.xfchat.iflytek.com/app/cli_new/baseinfo" {
+		t.Fatalf("expected created app url, got %#v", result)
+	}
+}
+
 func TestClientEnsureRedirectURLReturnsErrorOnUnexpectedStatus(t *testing.T) {
 	t.Helper()
 

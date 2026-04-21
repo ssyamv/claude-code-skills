@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/ssyamv/claude-code-skills/xfchat-bootstrapper/internal/config"
@@ -125,6 +126,65 @@ func TestRunInitializesMissingStateAtPlatformSetup(t *testing.T) {
 	}
 }
 
+func TestRunUsesRuntimeCallbackURLForPlatformSetupAndOAuth(t *testing.T) {
+	root := t.TempDir()
+	store := state.NewStore(root)
+	if err := store.Save(state.BootstrapState{
+		Phase: state.PhasePlatformSetup,
+	}); err != nil {
+		t.Fatalf("seed state failed: %v", err)
+	}
+
+	waiter := waiterFunc{
+		url: "http://127.0.0.1:18081/callback",
+		wait: func(context.Context) (CallbackResult, error) {
+			return CallbackResult{Code: "code-123"}, nil
+		},
+	}
+	var gotSetupCallbackURL string
+	var gotOAuthCallbackURL string
+	var gotOAuthAuthURL string
+
+	orch := New(config.Config{
+		InstallRoot: root,
+		CallbackURL: "http://localhost:8080/callback",
+	}, store, "windows")
+	orch.LoadState = func() (state.BootstrapState, error) {
+		return store.Load()
+	}
+	orch.StartCallbackServer = func() (CallbackWaiter, error) {
+		return waiter, nil
+	}
+	orch.PlatformSetupRunner = callbackStateAdvanceRunnerFunc(func(_ context.Context, current state.BootstrapState, callbackURL string) (state.BootstrapState, error) {
+		gotSetupCallbackURL = callbackURL
+		next := current
+		next.AppID = "cli_123"
+		next.AppURL = "https://open.xfchat.iflytek.com/app/cli_123/baseinfo"
+		next.AppSecret = "secret-123"
+		next.AuthURL = buildOAuthAuthorizationURL("cli_123", callbackURL, []string{"docx:document:readonly"})
+		return next, nil
+	})
+	orch.OAuthRunner = callbackOAuthRunnerFunc(func(_ context.Context, current state.BootstrapState, callback CallbackWaiter) error {
+		gotOAuthCallbackURL = callback.URL()
+		gotOAuthAuthURL = current.AuthURL
+		return nil
+	})
+	orch.Validate = func(context.Context) error { return nil }
+
+	if err := orch.Run(context.Background()); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if gotSetupCallbackURL != "http://127.0.0.1:18081/callback" {
+		t.Fatalf("expected runtime callback URL in setup, got %q", gotSetupCallbackURL)
+	}
+	if gotOAuthCallbackURL != "http://127.0.0.1:18081/callback" {
+		t.Fatalf("expected same callback waiter in oauth, got %q", gotOAuthCallbackURL)
+	}
+	if !strings.Contains(gotOAuthAuthURL, "redirect_uri=http%3A%2F%2F127.0.0.1%3A18081%2Fcallback") {
+		t.Fatalf("expected auth URL to use runtime redirect, got %q", gotOAuthAuthURL)
+	}
+}
+
 type stateAdvanceRunnerFunc func(context.Context, state.BootstrapState) (state.BootstrapState, error)
 
 func (f stateAdvanceRunnerFunc) RunState(ctx context.Context, current state.BootstrapState) (state.BootstrapState, error) {
@@ -133,6 +193,30 @@ func (f stateAdvanceRunnerFunc) RunState(ctx context.Context, current state.Boot
 
 func (f stateAdvanceRunnerFunc) Run(context.Context, state.BootstrapState) error {
 	return nil
+}
+
+type callbackStateAdvanceRunnerFunc func(context.Context, state.BootstrapState, string) (state.BootstrapState, error)
+
+func (f callbackStateAdvanceRunnerFunc) RunStateWithCallbackURL(ctx context.Context, current state.BootstrapState, callbackURL string) (state.BootstrapState, error) {
+	return f(ctx, current, callbackURL)
+}
+
+func (f callbackStateAdvanceRunnerFunc) RunState(ctx context.Context, current state.BootstrapState) (state.BootstrapState, error) {
+	return f(ctx, current, "")
+}
+
+func (f callbackStateAdvanceRunnerFunc) Run(context.Context, state.BootstrapState) error {
+	return nil
+}
+
+type callbackOAuthRunnerFunc func(context.Context, state.BootstrapState, CallbackWaiter) error
+
+func (f callbackOAuthRunnerFunc) RunWithCallbackWaiter(ctx context.Context, current state.BootstrapState, callback CallbackWaiter) error {
+	return f(ctx, current, callback)
+}
+
+func (f callbackOAuthRunnerFunc) Run(ctx context.Context, current state.BootstrapState) error {
+	return f(ctx, current, waiterFunc{})
 }
 
 func TestNewWiresInternalValidationDefaultForValidatePhase(t *testing.T) {
